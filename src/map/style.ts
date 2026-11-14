@@ -17,9 +17,11 @@ for (const [k, u] of Object.entries(GEO_UNITS)) geologyColor.push(k, u.color);
 geologyColor.push('#888888');
 
 export const ROUTE_COLORS = {
-  core: '#ffd2a8',
-  mid: '#ff8a3d',
+  core: '#ffe2c8',
+  mid: '#ff8b3e',
   glow: '#ff6a1a',
+  casing: '#5a2109',
+  done: '#5b4a42',
 };
 
 export function buildStyle(): StyleSpecification {
@@ -65,7 +67,8 @@ export function buildStyle(): StyleSpecification {
           },
         },
       },
-      route: { type: 'geojson', data: { type: 'FeatureCollection', features: [] }, lineMetrics: true },
+      route: { type: 'geojson', data: { type: 'FeatureCollection', features: [] }, tolerance: 0.15 },
+      route_tip: { type: 'geojson', data: { type: 'FeatureCollection', features: [] } },
       route_done: { type: 'geojson', data: { type: 'FeatureCollection', features: [] } },
     },
     layers: [
@@ -111,29 +114,66 @@ export function buildStyle(): StyleSpecification {
         id: 'traverse', type: 'line', source: 'traverse', layout: { 'line-join': 'round', 'line-cap': 'round' },
         paint: { 'line-color': '#e9f4ff', 'line-width': ['interpolate', ['linear'], ['zoom'], 10, 1, 15, 2.4], 'line-opacity': 0.55, 'line-dasharray': [1, 1.6] },
       },
-      // Route: layered glow (copper/orange identity)
+      // Route — premium navigation line: soft contrast shadow, restrained copper glow, dark casing,
+      // bright copper body and a thin warm highlight. Widths scale with zoom; caps/joins are round.
+      {
+        id: 'route-shadow', type: 'line', source: 'route', layout: { 'line-join': 'round', 'line-cap': 'round' },
+        paint: {
+          'line-color': '#0c0503',
+          'line-width': ['interpolate', ['exponential', 1.4], ['zoom'], 9, 7, 13, 12, 17, 22],
+          'line-blur': ['interpolate', ['linear'], ['zoom'], 9, 4, 17, 9],
+          'line-opacity': 0.5,
+          'line-translate': [0, 1.5],
+        },
+      },
       {
         id: 'route-glow', type: 'line', source: 'route', layout: { 'line-join': 'round', 'line-cap': 'round' },
-        paint: { 'line-color': ROUTE_COLORS.glow, 'line-width': ['interpolate', ['linear'], ['zoom'], 9, 10, 16, 26], 'line-blur': ['interpolate', ['linear'], ['zoom'], 9, 8, 16, 18], 'line-opacity': 0.45 },
+        paint: {
+          'line-color': ROUTE_COLORS.glow,
+          'line-width': ['interpolate', ['exponential', 1.4], ['zoom'], 9, 8, 13, 13, 17, 24],
+          'line-blur': ['interpolate', ['linear'], ['zoom'], 9, 6, 17, 12],
+          'line-opacity': 0.28,
+        },
       },
       {
         id: 'route-casing', type: 'line', source: 'route', layout: { 'line-join': 'round', 'line-cap': 'round' },
-        paint: { 'line-color': '#3a1406', 'line-width': ['interpolate', ['linear'], ['zoom'], 9, 4.5, 16, 10], 'line-opacity': 0.75 },
+        paint: {
+          'line-color': ROUTE_COLORS.casing,
+          'line-width': ['interpolate', ['exponential', 1.4], ['zoom'], 9, 4.6, 13, 7, 17, 12.5],
+        },
       },
       {
         id: 'route-line', type: 'line', source: 'route', layout: { 'line-join': 'round', 'line-cap': 'round' },
         paint: {
-          'line-width': ['interpolate', ['linear'], ['zoom'], 9, 3, 16, 7],
-          'line-gradient': ['interpolate', ['linear'], ['line-progress'], 0, '#ffb070', 0.5, ROUTE_COLORS.mid, 1, '#ff6d2a'],
+          'line-color': ROUTE_COLORS.mid,
+          'line-width': ['interpolate', ['exponential', 1.4], ['zoom'], 9, 2.8, 13, 4.6, 17, 8.6],
         },
       },
       {
         id: 'route-core', type: 'line', source: 'route', layout: { 'line-join': 'round', 'line-cap': 'round' },
-        paint: { 'line-color': ROUTE_COLORS.core, 'line-width': ['interpolate', ['linear'], ['zoom'], 9, 0.8, 16, 2], 'line-opacity': 0.85 },
+        paint: {
+          'line-color': ROUTE_COLORS.core,
+          'line-width': ['interpolate', ['exponential', 1.4], ['zoom'], 9, 0.7, 13, 1.2, 17, 2.4],
+          'line-opacity': 0.75,
+          'line-blur': 0.4,
+        },
       },
       {
         id: 'route-done', type: 'line', source: 'route_done', layout: { 'line-join': 'round', 'line-cap': 'round' },
-        paint: { 'line-color': '#2b211c', 'line-width': ['interpolate', ['linear'], ['zoom'], 9, 3.4, 16, 7.4], 'line-opacity': 0.82 },
+        paint: {
+          'line-color': ROUTE_COLORS.done,
+          'line-width': ['interpolate', ['exponential', 1.4], ['zoom'], 9, 3, 13, 4.8, 17, 9],
+          'line-opacity': 0.92,
+        },
+      },
+      // Reveal tip: a small warm light that leads the drawing animation.
+      {
+        id: 'route-tip-glow', type: 'circle', source: 'route_tip',
+        paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], 9, 7, 17, 14], 'circle-color': ROUTE_COLORS.glow, 'circle-blur': 1, 'circle-opacity': 0.55, 'circle-pitch-alignment': 'map' },
+      },
+      {
+        id: 'route-tip', type: 'circle', source: 'route_tip',
+        paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], 9, 2.4, 17, 4.5], 'circle-color': '#fff1e4', 'circle-pitch-alignment': 'map' },
       },
     ],
   };

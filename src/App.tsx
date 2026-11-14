@@ -3,24 +3,26 @@ import { MapView } from './map/MapView';
 import { useStore } from './state/store';
 import { loadGeologyIndex, loadPois, loadThemis } from './data/loaders';
 import { routing } from './routing/client';
-import { PlanningPanel } from './ui/components/PlanningPanel';
 import { ArrivalCard, NavHUD } from './ui/components/Navigation';
 import { LayersMenu } from './ui/components/LayersMenu';
-import { BottomBar, Brand, IntroOverlay, MapControls, ModeSwitch, SourcesModal, Toast } from './ui/components/Chrome';
-import { SearchBox } from './ui/components/Search';
-import { IconChevron } from './ui/icons/Icons';
+import { BottomBar, IntroOverlay, MapControls, SourcesModal, Toast } from './ui/components/Chrome';
+import { NavTopBar, Sidebar } from './ui/components/Sidebar';
 
 function RouteBanner() {
   const origin = useStore((s) => s.origin);
   const dest = useStore((s) => s.destination);
   if (origin && dest) return null;
-  return <div className="gm-mode-banner glass-lite">Route mode · click the map to place {origin ? 'the destination' : 'the origin'}</div>;
+  return (
+    <div className="gm-mode-banner glass-lite" key={origin ? 'd' : 'o'}>
+      <span className={`gm-banner-dot ${origin ? 'dest' : 'origin'}`} />
+      Click the map to place the {origin ? 'destination' : 'start'}
+    </div>
+  );
 }
 
 export default function App() {
   const phase = useStore((s) => s.phase);
   const mode = useStore((s) => s.appMode);
-  const hidden = useStore((s) => s.panelsHidden);
   const tool = useStore((s) => s.tool);
 
   useEffect(() => {
@@ -57,26 +59,10 @@ export default function App() {
       <IntroOverlay />
       {ready && (
         <>
-          <header className="gm-top">
-            <div className="gm-top-left glass">
-              <Brand compact />
-              <SearchBox />
-            </div>
-          </header>
-          {mode === 'planning' && (
-            <aside className={`gm-side glass ${hidden ? 'collapsed' : ''}`} aria-label="Mission planning">
-              <ModeSwitch />
-              {!hidden && <PlanningPanel />}
-              <button className="gm-collapse" onClick={() => useStore.getState().set({ panelsHidden: !hidden })} aria-label={hidden ? 'Show panel' : 'Hide panel'} title="Hide/show panel (H)">
-                <IconChevron size={16} style={{ transform: hidden ? 'rotate(90deg)' : 'rotate(-90deg)' }} />
-              </button>
-            </aside>
-          )}
+          {mode === 'planning' && <Sidebar />}
           {mode === 'navigation' && (
             <>
-              <div className="gm-nav-mode glass">
-                <ModeSwitch />
-              </div>
+              <NavTopBar />
               <NavHUD />
             </>
           )}

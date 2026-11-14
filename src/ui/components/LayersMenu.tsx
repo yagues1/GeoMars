@@ -88,7 +88,7 @@ export function LayersMenu() {
   const s = useStore();
   if (!open) return null;
   return (
-    <aside className="gm-layers glass gm-slide-in-right" aria-label="Map styles and layers">
+    <aside className="gm-layers glass gm-slide-in-right" aria-label="Map styles and layers" data-map-obstacle>
       <div className="gm-card-head">
         <h3>Map & layers</h3>
         <button className="gm-icon-btn" onClick={() => s.set({ layersOpen: false })} aria-label="Close layers">

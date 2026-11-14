@@ -18,6 +18,7 @@ export class NavigationController {
   private raf = 0;
   private last = 0;
   private camBearing = 0;
+  private arrowBearing = 0;
   private lastUi = 0;
   private simTime = 0;
   private unsub: () => void;
@@ -33,6 +34,10 @@ export class NavigationController {
       if (s.appMode !== prev.appMode && s.appMode === 'planning') this.teardown();
       if (s.route !== prev.route) this.teardown();
     });
+  }
+
+  private camOffset(): [number, number] {
+    return [0, Math.round(this.map.getContainer().clientHeight * 0.17)];
   }
 
   dispose() {
@@ -57,8 +62,9 @@ export class NavigationController {
     this.simTime = useStore.getState().navSimTime;
     const p = positionAtTime(route, this.simTime);
     this.camBearing = p.heading;
-    this.ensureArrow(p.lngLat, p.heading);
-    this.map.easeTo({ center: p.lngLat, zoom: NAV_ZOOM, pitch: 62, bearing: p.heading, duration: 1800, easing: easeInOutCubic });
+    this.arrowBearing = p.tangent;
+    this.ensureArrow(p.lngLat, p.tangent);
+    this.map.easeTo({ center: p.lngLat, offset: this.camOffset(), zoom: NAV_ZOOM, pitch: 62, bearing: p.heading, duration: 1800, easing: easeInOutCubic });
   }
 
   private ensureArrow(lngLat: [number, number], heading: number) {
@@ -83,7 +89,8 @@ export class NavigationController {
       if (route && !this.arrow) {
         const p = positionAtTime(route, this.simTime);
         this.camBearing = p.heading;
-        this.ensureArrow(p.lngLat, p.heading);
+        this.arrowBearing = p.tangent;
+        this.ensureArrow(p.lngLat, p.tangent);
       }
       this.raf = requestAnimationFrame(this.tick);
     } else {
@@ -119,7 +126,10 @@ export class NavigationController {
     // critically-damped-ish bearing smoothing (no abrupt rotations)
     const k = snap ? 1 : 1 - Math.exp(-dt * 2.2);
     this.camBearing = (this.camBearing + angleDelta(this.camBearing, p.heading) * k + 360) % 360;
-    this.ensureArrow(p.lngLat, p.heading);
+    // the arrow follows the local tangent closely but never snaps between directions
+    const ka = snap ? 1 : 1 - Math.exp(-dt * 9);
+    this.arrowBearing = (this.arrowBearing + angleDelta(this.arrowBearing, p.tangent) * ka + 360) % 360;
+    this.ensureArrow(p.lngLat, this.arrowBearing);
     // traveled part of the route is dimmed
     const done = route.coordinates.slice(0, p.seg + 1);
     done.push(p.lngLat);
@@ -128,7 +138,8 @@ export class NavigationController {
       properties: {},
       geometry: { type: 'LineString', coordinates: done },
     });
-    this.map.jumpTo({ center: p.lngLat, bearing: this.camBearing, pitch: 62, zoom: this.map.getZoom() < 13.5 ? NAV_ZOOM : this.map.getZoom() });
+    // vehicle sits in the lower third of the view so more of the road ahead is visible
+    this.map.easeTo({ center: p.lngLat, offset: this.camOffset(), bearing: this.camBearing, pitch: 62, zoom: this.map.getZoom() < 13.5 ? NAV_ZOOM : this.map.getZoom(), duration: 0 });
     return p.done;
   }
 

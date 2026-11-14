@@ -64,7 +64,7 @@ export function NavHUD() {
           </div>
         </div>
       )}
-      <div className="gm-nav-card glass">
+      <div className="gm-nav-card glass" data-map-obstacle>
         <div className="gm-nav-top">
           <div>
             <div className="gm-big">{status === 'arrived' ? 'Arrived' : formatDuration(pos.remainingS)}</div>
