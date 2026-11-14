@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import maplibregl, { type GeoJSONSource, type Map as MlMap } from 'maplibre-gl';
+import maplibregl, { type Map as MlMap } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { buildStyle, STYLE_LAYERS } from './style';
 import { setMap } from './mapRef';
@@ -11,6 +11,9 @@ import { routing } from '../routing/client';
 import { geologyAt } from '../data/geology';
 import { themisAt, type Poi } from '../data/loaders';
 import { marsDistance, type LngLat } from '../geo/mars';
+import { cancelReveal, showRoute } from './routeReveal';
+import { routePadding } from '../state/actions';
+import { PoiLayout } from './poiLayout';
 
 const LAYER_IDS: Record<keyof LayerState, string[]> = {
   pois: [],
@@ -120,6 +123,7 @@ export function MapView() {
     let destMk: maplibregl.Marker | null = null;
     let inspectMk: maplibregl.Marker | null = null;
     const poiMarkers: maplibregl.Marker[] = [];
+    const poiLayout = new PoiLayout(map);
 
     const applyStyle = () => {
       const s = useStore.getState();
@@ -155,14 +159,9 @@ export function MapView() {
       }
     };
 
-    const applyRoute = () => {
-      const { route } = useStore.getState();
-      const src = map.getSource('route') as GeoJSONSource | undefined;
-      src?.setData(
-        route
-          ? { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: route.coordinates } }
-          : { type: 'FeatureCollection', features: [] },
-      );
+    const applyRoute = (animate = false) => {
+      const { route, appMode } = useStore.getState();
+      showRoute(map, route, animate && appMode === 'planning');
     };
 
     const applyEndpoints = () => {
@@ -175,7 +174,7 @@ export function MapView() {
         originMk = null;
       }
       if (destination) {
-        destMk ??= new maplibregl.Marker({ element: destinationMarkerEl(), anchor: 'bottom' }).setLngLat(destination).addTo(map);
+        destMk ??= new maplibregl.Marker({ element: destinationMarkerEl(), anchor: 'bottom', offset: [0, 2] }).setLngLat(destination).addTo(map);
         destMk.setLngLat(destination);
       } else {
         destMk?.remove();
@@ -197,12 +196,19 @@ export function MapView() {
     const buildPoiMarkers = () => {
       poiMarkers.forEach((m) => m.remove());
       poiMarkers.length = 0;
+      const entries: { poi: Poi; el: HTMLElement }[] = [];
       for (const p of useStore.getState().pois) {
         const el = poiMarkerEl(p.name, p.category);
         el.addEventListener('click', (e) => {
           e.stopPropagation();
           const s = useStore.getState();
           if (s.appMode !== 'planning') return;
+          // Explore: a marker standing for several nearby sites first zooms in to separate them.
+          // Route: the marker always sets its own site (its label names it).
+          if (s.tool === 'explore' && Number(el.dataset.cluster) > 0 && map.getZoom() < 14.5) {
+            map.easeTo({ center: [p.lon, p.lat], zoom: Math.min(16, map.getZoom() + 1.8), duration: 800, easing: easeInOutCubic });
+            return;
+          }
           if (s.tool === 'route') s.setPoint([p.lon, p.lat], p.name);
           else {
             useStore.setState({ selectedPoi: p, inspect: null });
@@ -210,14 +216,24 @@ export function MapView() {
           }
         });
         poiMarkers.push(new maplibregl.Marker({ element: el }).setLngLat([p.lon, p.lat]).addTo(map));
+        entries.push({ poi: p, el });
       }
+      poiLayout.setEntries(entries);
+      applySelected();
       applyLayers();
     };
 
+    const applySelected = () => {
+      const { selectedPoi } = useStore.getState();
+      poiMarkers.forEach((m) => {
+        const el = m.getElement();
+        el.classList.toggle('is-selected', !!selectedPoi && el.getAttribute('aria-label') === selectedPoi.name);
+      });
+      poiLayout.setSelected(selectedPoi?.id ?? null);
+    };
+
     const onZoom = () => {
-      const z = map.getZoom();
-      ref.current?.classList.toggle('show-poi-labels', z >= 12.6);
-      ref.current?.classList.toggle('hide-pois', z < 9);
+      ref.current?.classList.toggle('hide-pois', map.getZoom() < 9);
     };
 
     map.on('zoom', onZoom);
@@ -288,19 +304,24 @@ export function MapView() {
       if (!styleReady) return;
       if (s.layers !== prev.layers || s.mapStyle !== prev.mapStyle) applyLayers();
       if (s.view3d !== prev.view3d || s.exaggeration !== prev.exaggeration) applyTerrain();
-      if (s.route !== prev.route) applyRoute();
+      if (s.route !== prev.route) applyRoute(!!s.route);
+      if (s.selectedPoi !== prev.selectedPoi) applySelected();
       if (s.origin !== prev.origin || s.destination !== prev.destination) applyEndpoints();
       if (s.inspect !== prev.inspect || s.tool !== prev.tool || s.appMode !== prev.appMode) applyInspect();
       if (s.pois !== prev.pois) buildPoiMarkers();
       if (s.appMode !== prev.appMode) {
         ref.current?.classList.toggle('nav-mode', s.appMode === 'navigation');
-        if (s.appMode === 'navigation') navController?.enter();
+        poiLayout.setLabelsEnabled(s.appMode !== 'navigation');
+        if (s.appMode === 'navigation') {
+          cancelReveal();
+          navController?.enter();
+        }
         else if (prev.appMode === 'navigation') {
           const r = s.route;
           if (r) {
             const b = new maplibregl.LngLatBounds();
             r.coordinates.forEach((c) => b.extend(c));
-            map.fitBounds(b, { padding: { top: 90, bottom: 90, left: 420, right: 90 }, pitch: s.view3d ? 50 : 0, bearing: 0, duration: 1600, maxZoom: 15 });
+            map.fitBounds(b, { padding: routePadding(), pitch: s.view3d ? 50 : 0, bearing: 0, duration: 1600, maxZoom: 15 });
           } else map.easeTo({ pitch: s.view3d ? 50 : 0, bearing: 0, duration: 1200 });
         }
       }
@@ -308,6 +329,8 @@ export function MapView() {
 
     return () => {
       unsub();
+      poiLayout.dispose();
+      cancelReveal();
       navController?.dispose();
       navController = null;
       map.remove();

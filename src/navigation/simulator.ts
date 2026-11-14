@@ -11,7 +11,10 @@ export interface NavPosition {
   distanceM: number;
   remainingM: number;
   remainingS: number;
+  /** camera heading: looks ~120 m ahead for a calm, comfortable view */
   heading: number;
+  /** local route tangent (±15 m) — the vehicle arrow's orientation */
+  tangent: number;
   done: boolean;
 }
 
@@ -61,6 +64,9 @@ export function positionAtTime(route: RouteSuccess, t: number): NavPosition {
   const ahead = pointAtDistance(route, d + 120);
   const behind = pointAtDistance(route, Math.max(0, d - 10));
   const heading = d + 1 >= route.distanceM ? bearing(behind, pos) : bearing(pos, ahead);
+  const t0p = pointAtDistance(route, Math.max(0, Math.min(d, route.distanceM - 30) - 15));
+  const t1p = pointAtDistance(route, Math.max(30, d) + 15);
+  const tangent = bearing(t0p, t1p);
   return {
     lngLat: pos,
     seg: k,
@@ -68,6 +74,7 @@ export function positionAtTime(route: RouteSuccess, t: number): NavPosition {
     remainingM: Math.max(0, route.distanceM - d),
     remainingS: Math.max(0, total - tt),
     heading,
+    tangent,
     done: tt >= total,
   };
 }

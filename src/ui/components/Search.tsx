@@ -77,7 +77,7 @@ export function SearchBox() {
             inputRef.current?.blur();
           }
         }}
-        placeholder="Search places, samples or 18.44N 77.45E"
+        placeholder="Search sites, samples or 18.44N 77.45E"
         aria-label="Search places, scientific sites or Martian coordinates"
         aria-autocomplete="list"
         aria-expanded={open && results.length > 0}

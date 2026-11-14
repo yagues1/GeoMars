@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { useStore } from '../../state/store';
-import { calculateRoute, flyTo, startNavigation } from '../../state/actions';
+import { calculateRoute, enterNavigationPaused, flyTo, startNavigation } from '../../state/actions';
 import { formatCoord, formatDistance, formatDuration } from '../../geo/mars';
 import { DEFAULT_VEHICLE } from '../../routing/vehicle';
 import { GEO_UNITS } from '../../data/geology';
 import { DATASETS } from '../../data/datasets';
-import { IconChevron, IconClose, IconExplore, IconFlag, IconInfo, IconNav, IconRoute, IconSample, IconWarning } from '../icons/Icons';
+import { IconBolt, IconChevron, IconClose, IconExplore, IconEye, IconFlag, IconInfo, IconMountain, IconNav, IconRoute, IconSample, IconSlope, IconSwap, IconWarning } from '../icons/Icons';
 import { StatusTag } from './StatusTag';
 
 export function ToolSwitch() {
@@ -27,47 +27,71 @@ export function ToolSwitch() {
 export function PlanningPanel() {
   const tool = useStore((s) => s.tool);
   return (
-    <div className="gm-panel-body">
-      <ToolSwitch />
-      <div key={tool} className="gm-fade-in">
-        {tool === 'route' ? <RouteTool /> : <ExploreTool />}
-      </div>
+    <div key={tool} className="gm-swap-in">
+      {tool === 'route' ? <RouteTool /> : <ExploreTool />}
     </div>
   );
 }
 
 /* ------------------------------------------------------------------ Route tool */
+function swapEnds() {
+  const s = useStore.getState();
+  if (!s.origin || !s.destination) return;
+  useStore.setState({
+    origin: s.destination,
+    destination: s.origin,
+    originLabel: s.destinationLabel,
+    destinationLabel: s.originLabel,
+    route: null,
+    routeError: null,
+    routeStatus: 'idle',
+    navStatus: 'idle',
+    navSimTime: 0,
+  });
+}
+
 function RouteTool() {
   const s = useStore();
   const [details, setDetails] = useState(false);
   const step = !s.origin ? 1 : !s.destination ? 2 : 3;
+  const computing = s.routeStatus === 'computing';
   return (
     <div className="gm-route">
-      <div className="gm-stops">
-        <div className={`gm-stop ${step === 1 ? 'pending' : ''}`}>
-          <span className="gm-stop-dot origin" />
-          <div className="gm-stop-text">
-            <div className="gm-stop-label">Origin</div>
-            <div className="gm-stop-value">{s.origin ? s.originLabel ?? formatCoord(s.origin, 4) : 'Click the map to set the start'}</div>
+      <div className={`gm-stops step-${step}`}>
+        <div className={`gm-field ${step === 1 ? 'active' : ''} ${s.origin ? 'filled' : ''}`}>
+          <span className="gm-field-icon origin" aria-hidden="true" />
+          <div className="gm-field-text">
+            <div className="gm-field-label">Start</div>
+            <div className="gm-field-value">{s.origin ? s.originLabel ?? formatCoord(s.origin, 4) : 'Choose a starting point'}</div>
           </div>
         </div>
-        <div className="gm-stop-line" />
-        <div className={`gm-stop ${step === 2 ? 'pending' : ''}`}>
-          <span className="gm-stop-dot dest" />
-          <div className="gm-stop-text">
-            <div className="gm-stop-label">Destination</div>
-            <div className="gm-stop-value">
-              {s.destination ? s.destinationLabel ?? formatCoord(s.destination, 4) : s.origin ? 'Click the map to set the destination' : '—'}
-            </div>
+        <div className="gm-field-link" aria-hidden="true" />
+        <div className={`gm-field ${step === 2 ? 'active' : ''} ${s.destination ? 'filled' : ''}`}>
+          <span className="gm-field-icon dest" aria-hidden="true" />
+          <div className="gm-field-text">
+            <div className="gm-field-label">Destination</div>
+            <div className="gm-field-value">{s.destination ? s.destinationLabel ?? formatCoord(s.destination, 4) : 'Choose a destination'}</div>
           </div>
         </div>
+        {s.origin && s.destination && (
+          <button className="gm-swap" onClick={swapEnds} aria-label="Swap start and destination" title="Swap start and destination" disabled={computing}>
+            <IconSwap size={16} />
+          </button>
+        )}
       </div>
 
+      {step < 3 && (
+        <p className="gm-hint">
+          <span className="gm-hint-key">{step}</span>
+          Click the map, a site marker, or search to set the {step === 1 ? 'start' : 'destination'}.
+        </p>
+      )}
+
       {s.origin && s.destination && s.routeStatus !== 'done' && (
-        <button className="gm-btn primary block" onClick={() => void calculateRoute()} disabled={s.routeStatus === 'computing'}>
-          {s.routeStatus === 'computing' ? (
+        <button className={`gm-btn primary block lg ${computing ? 'is-loading' : ''}`} onClick={() => void calculateRoute()} disabled={computing}>
+          {computing ? (
             <>
-              <span className="gm-spinner" /> Optimising route over terrain…
+              <span className="gm-spinner" /> Optimising over terrain…
             </>
           ) : (
             <>
@@ -78,7 +102,7 @@ function RouteTool() {
       )}
 
       {s.routeStatus === 'failed' && s.routeError && (
-        <div className="gm-alert" role="alert">
+        <div className="gm-alert gm-pop-in" role="alert">
           <IconWarning size={18} />
           <div>
             <strong>No defensible route</strong>
@@ -88,16 +112,26 @@ function RouteTool() {
       )}
 
       {s.route && s.routeStatus === 'done' && (
-        <div className="gm-route-result gm-pop-in">
-          <div className="gm-route-main">
-            <div>
-              <div className="gm-big">{formatDuration(s.route.timeS)}</div>
-              <div className="gm-sub">{formatDistance(s.route.distanceM)} · estimated</div>
+        <div className="gm-summary gm-pop-in">
+          <div className="gm-summary-head">
+            <div className="gm-eta">{formatDuration(s.route.timeS)}</div>
+            <div className="gm-eta-sub">
+              {formatDistance(s.route.distanceM)} <span className="gm-dot-sep" /> estimated drive
             </div>
-            <button className="gm-btn primary round" onClick={startNavigation} aria-label="Start navigation">
-              <IconNav size={20} />
-              <span>Start</span>
-            </button>
+          </div>
+          <div className="gm-stats">
+            <div className="gm-stat" title="Total ascent along the route">
+              <IconMountain size={14} />
+              <span>+{Math.round(s.route.ascentM)} m</span>
+            </div>
+            <div className="gm-stat" title={`Steepest slope crossed (vehicle limit ${DEFAULT_VEHICLE.maxSlopeDeg}°)`}>
+              <IconSlope size={14} />
+              <span>{s.route.maxSlopeDeg.toFixed(0)}° max</span>
+            </div>
+            <div className="gm-stat" title="Estimated traction energy">
+              <IconBolt size={14} />
+              <span>{s.route.energyKWh.toFixed(1)} kWh</span>
+            </div>
           </div>
           {(s.route.snappedStartM > 0 || s.route.snappedEndM > 0) && (
             <p className="gm-note">Endpoint moved {Math.round(Math.max(s.route.snappedStartM, s.route.snappedEndM))} m to the nearest safe, observed terrain.</p>
@@ -107,24 +141,33 @@ function RouteTool() {
               <IconWarning size={14} /> {Math.round(s.route.cautionFraction * 100)}% of the route crosses 15–20° slopes.
             </p>
           )}
+          <button className="gm-btn primary block lg gm-start" onClick={startNavigation}>
+            <IconNav size={18} /> Start navigation
+          </button>
+          <div className="gm-row gap split">
+            <button className="gm-btn subtle" onClick={enterNavigationPaused} title="Open Astronaut Navigation without starting the drive">
+              <IconEye size={16} /> Preview
+            </button>
+            <button className="gm-btn subtle" onClick={s.clearRoute}>
+              <IconClose size={16} /> Clear route
+            </button>
+          </div>
           <button className="gm-disclosure" onClick={() => setDetails((d) => !d)} aria-expanded={details}>
-            <IconChevron size={14} style={{ transform: details ? 'rotate(90deg)' : undefined, transition: 'transform .2s' }} /> Route details
+            <IconChevron size={14} className="gm-disc-chev" /> Route details
           </button>
           {details && <RouteDetails />}
         </div>
       )}
 
-      <div className="gm-row gap">
-        {(s.origin || s.destination) && (
-          <button className="gm-btn ghost" onClick={s.clearRoute}>
-            <IconClose size={16} /> Clear route
-          </button>
-        )}
-      </div>
+      {(s.origin || s.destination) && s.routeStatus !== 'done' && (
+        <button className="gm-btn subtle block" onClick={s.clearRoute} disabled={computing}>
+          <IconClose size={16} /> Clear
+        </button>
+      )}
       {!s.origin && (
-        <p className="gm-hint">
-          Routes are computed on the 20 m CTX elevation model (Jezero and surroundings). Areas steeper than {DEFAULT_VEHICLE.maxSlopeDeg}° and areas without
-          elevation data are excluded.
+        <p className="gm-fine">
+          Routes use the 20 m CTX elevation model of Jezero. Terrain steeper than {DEFAULT_VEHICLE.maxSlopeDeg}° and areas without elevation data are never
+          crossed.
         </p>
       )}
     </div>
@@ -164,7 +207,7 @@ function ExploreTool() {
   if (inspect) return <InspectCard />;
   return (
     <div className="gm-explore-empty">
-      <p className="gm-hint">Click anywhere on the map to inspect terrain, geology and thermal data. Click a site marker to read about it.</p>
+      <p className="gm-lead">Click anywhere on the map to read elevation, slope, geology and thermal data — or open a scientific site.</p>
       <FeaturedSites />
     </div>
   );
@@ -177,7 +220,7 @@ function FeaturedSites() {
     .filter(Boolean);
   return (
     <div className="gm-featured">
-      <div className="gm-section-title">Scientific destinations</div>
+      <div className="gm-section-title">Featured sites</div>
       {featured.map((p) => (
         <button
           key={p!.id}
@@ -233,7 +276,7 @@ export function PoiCard() {
         </button>
       </div>
       <button className="gm-disclosure" onClick={() => setMore((m) => !m)} aria-expanded={more}>
-        <IconChevron size={14} style={{ transform: more ? 'rotate(90deg)' : undefined, transition: 'transform .2s' }} /> Source & location method
+        <IconChevron size={14} className="gm-disc-chev" /> Source & location method
       </button>
       {more && (
         <div className="gm-details">
@@ -310,7 +353,7 @@ function InspectCard() {
         </button>
       )}
       <button className="gm-disclosure" onClick={() => setMore((m) => !m)} aria-expanded={more}>
-        <IconChevron size={14} style={{ transform: more ? 'rotate(90deg)' : undefined, transition: 'transform .2s' }} /> Data details
+        <IconChevron size={14} className="gm-disc-chev" /> Data details
       </button>
       {more && (
         <div className="gm-details">

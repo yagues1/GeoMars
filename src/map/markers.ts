@@ -1,9 +1,9 @@
-/** DOM factories for map markers (simple, rounded, Google-Maps-inspired). */
+/** DOM factories for map markers — minimalist, Google-Maps-inspired, copper identity. */
 
 export function originMarkerEl() {
   const el = document.createElement('div');
   el.className = 'gm-marker gm-origin';
-  el.innerHTML = '<span class="gm-origin-dot"></span>';
+  el.innerHTML = '<span class="gm-origin-ring"></span><span class="gm-origin-dot"></span>';
   el.setAttribute('aria-label', 'Route origin');
   return el;
 }
@@ -11,27 +11,31 @@ export function originMarkerEl() {
 export function destinationMarkerEl() {
   const el = document.createElement('div');
   el.className = 'gm-marker gm-dest';
-  el.innerHTML = `<svg width="34" height="44" viewBox="0 0 34 44" aria-hidden="true">
-    <defs><linearGradient id="gmPin" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff9a52"/><stop offset="1" stop-color="#d9531c"/></linearGradient></defs>
-    <path d="M17 43C17 43 3 26.5 3 16.5A14 14 0 0 1 31 16.5C31 26.5 17 43 17 43Z" fill="url(#gmPin)" stroke="#fff3e8" stroke-width="2"/>
-    <circle cx="17" cy="16.5" r="5.2" fill="#fff6ee"/></svg>`;
+  el.innerHTML = `<span class="gm-dest-shadow"></span><svg width="30" height="40" viewBox="0 0 30 40" aria-hidden="true">
+    <defs><linearGradient id="gmPin" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffa262"/><stop offset="1" stop-color="#e2581f"/></linearGradient></defs>
+    <path d="M15 38.5C15 38.5 2.5 24.6 2.5 14.6A12.5 12.5 0 0 1 27.5 14.6C27.5 24.6 15 38.5 15 38.5Z" fill="url(#gmPin)" stroke="#fff6ee" stroke-width="1.8"/>
+    <circle cx="15" cy="14.6" r="4.6" fill="#fff8f1"/></svg>`;
   el.setAttribute('aria-label', 'Route destination');
   return el;
 }
 
+/** Navigation puck: minimal copper chevron with a white rim, flat ground halo, map-aligned. */
 export function navArrowEl() {
   const el = document.createElement('div');
   el.className = 'gm-nav-arrow';
-  el.innerHTML = `<div class="gm-nav-halo"></div><svg width="54" height="54" viewBox="0 0 54 54" aria-hidden="true">
-    <defs><linearGradient id="gmArrow" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffd0a6"/><stop offset="1" stop-color="#ff7a2e"/></linearGradient></defs>
-    <circle cx="27" cy="27" r="22" fill="#1a0e08" fill-opacity=".55" stroke="#fff2e6" stroke-width="2.5"/>
-    <path d="M27 9 L40 39 L27 32 L14 39 Z" fill="url(#gmArrow)" stroke="#fff7ef" stroke-width="1.6" stroke-linejoin="round"/></svg>`;
+  el.innerHTML = `<div class="gm-nav-halo"></div><svg width="44" height="44" viewBox="0 0 44 44" aria-hidden="true">
+    <defs>
+      <linearGradient id="gmArrow" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffb47e"/><stop offset="1" stop-color="#f06a24"/></linearGradient>
+    </defs>
+    <path d="M22 5 L36 37 L22 29.5 L8 37 Z" fill="url(#gmArrow)" stroke="#fff8f1" stroke-width="2.6" stroke-linejoin="round"/>
+    <path d="M22 9.5 L22 28" stroke="#fff3e6" stroke-opacity=".35" stroke-width="1.2" stroke-linecap="round"/></svg>`;
   return el;
 }
 
 export function inspectMarkerEl() {
   const el = document.createElement('div');
   el.className = 'gm-inspect-pin';
+  el.innerHTML = '<span></span>';
   return el;
 }
 
@@ -42,14 +46,17 @@ export function arrivalPulseEl() {
   return el;
 }
 
+const ICON_SAMPLE =
+  '<svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"><rect x="5.3" y="1.2" width="5.4" height="13.6" rx="2.7" fill="none" stroke="currentColor" stroke-width="1.9"/><rect x="6.9" y="8" width="2.2" height="5" rx="1.1" fill="currentColor"/></svg>';
+const ICON_LANDMARK = '<svg viewBox="0 0 16 16" width="9" height="9" aria-hidden="true"><path d="M8 1.2 14.8 8 8 14.8 1.2 8Z" fill="currentColor"/></svg>';
+
+/** POI marker: fixed-size icon (stable anchor); the label is positioned by the collision layout. */
 export function poiMarkerEl(name: string, category: 'sample' | 'landmark') {
   const el = document.createElement('button');
   el.type = 'button';
   el.className = `gm-poi gm-poi-${category}`;
   el.setAttribute('aria-label', name);
-  el.innerHTML =
-    category === 'sample'
-      ? `<span class="gm-poi-icon"><svg viewBox="0 0 16 16" width="12" height="12"><rect x="5.5" y="1.5" width="5" height="13" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="6.8" y="8" width="2.4" height="5.2" rx="1.2" fill="currentColor"/></svg></span><span class="gm-poi-label">${name}</span>`
-      : `<span class="gm-poi-icon"><svg viewBox="0 0 16 16" width="12" height="12"><path d="M8 1.5 14.5 8 8 14.5 1.5 8Z" fill="currentColor"/></svg></span><span class="gm-poi-label">${name}</span>`;
+  el.innerHTML = `<span class="gm-poi-icon">${category === 'sample' ? ICON_SAMPLE : ICON_LANDMARK}</span><span class="gm-poi-badge"></span><span class="gm-poi-label"></span>`;
+  (el.querySelector('.gm-poi-label') as HTMLElement).textContent = name;
   return el;
 }

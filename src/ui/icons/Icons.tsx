@@ -58,3 +58,9 @@ export function GeoMarsLogo({ size = 30 }: { size?: number }) {
     </svg>
   );
 }
+
+export const IconMountain = ({ size, ...p }: P) => (<svg {...base(size)} {...p}><path d="m3 19 6.5-11 4 6.5 2.5-3.5L21 19H3Z" /></svg>);
+export const IconSlope = ({ size, ...p }: P) => (<svg {...base(size)} {...p}><path d="M3 19h18L3 8v11Z" /><path d="M8 19a5 5 0 0 0-1.6-3.7" /></svg>);
+export const IconBolt = ({ size, ...p }: P) => (<svg {...base(size)} {...p}><path d="M13 2.5 5 13.5h6l-1 8 8-11h-6l1-8Z" /></svg>);
+export const IconBack = ({ size, ...p }: P) => (<svg {...base(size)} {...p}><path d="m15 6-6 6 6 6" /></svg>);
+export const IconSidebar = ({ size, ...p }: P) => (<svg {...base(size)} {...p}><rect x="3.5" y="4.5" width="17" height="15" rx="3.5" /><path d="M9.5 4.5v15" /></svg>);

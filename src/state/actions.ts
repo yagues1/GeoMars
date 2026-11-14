@@ -4,8 +4,10 @@ import { routing } from '../routing/client';
 import { getMap } from '../map/mapRef';
 import { easeInOutCubic } from '../navigation/controller';
 
-function leftPad() {
-  return window.innerWidth > 900 ? 430 : 40;
+/** Map padding that keeps a fitted route clear of the floating panels. */
+export function routePadding() {
+  if (window.innerWidth > 820) return { top: 90, bottom: 90, left: 420, right: 100 };
+  return { top: 80, bottom: Math.round(window.innerHeight * 0.5), left: 40, right: 76 };
 }
 
 export async function calculateRoute() {
@@ -25,7 +27,7 @@ export async function calculateRoute() {
         const b = new maplibregl.LngLatBounds();
         res.coordinates.forEach((c) => b.extend(c));
         map.fitBounds(b, {
-          padding: { top: 100, bottom: 120, left: leftPad(), right: 100 },
+          padding: routePadding(),
           maxZoom: 15,
           duration: 1500,
           easing: easeInOutCubic,

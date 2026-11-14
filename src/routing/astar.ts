@@ -16,6 +16,7 @@
  * Ties are broken deterministically by node index.
  */
 import { COST_WEIGHTS, segmentEnergyWh, speedFactor, type VehicleModel } from './vehicle';
+import { densify, filletCorners, relax, segmentClear, stringPull, traversable, type CellPt } from './geometry';
 
 export interface TerrainGrid {
   width: number;
@@ -144,10 +145,6 @@ export function elevationAt(g: TerrainGrid, lon: number, lat: number): number {
   const e = [g.elev[i], g.elev[i + 1], g.elev[i + g.width], g.elev[i + g.width + 1]];
   if (e.some((v) => v === g.elevNodata)) return NaN;
   return (e[0] * (1 - tx) + e[1] * tx) * (1 - ty) + (e[2] * (1 - tx) + e[3] * tx) * ty;
-}
-
-function traversable(g: PreparedGrid, i: number, maxSlopeQ: number) {
-  return g.confidence[i] !== 0 && g.slope[i] <= maxSlopeQ;
 }
 
 /** Binary min-heap keyed by f, ties broken by node id for determinism. */
@@ -340,62 +337,28 @@ function snapCell(g: PreparedGrid, c: number, r: number, maxQ: number, radius: n
   return { index: best, distM: bestD };
 }
 
-/** Line-of-sight test used for path simplification: every sampled cell must be traversable, observed
- * and no steeper than `maxAllowedQ` (the steepest cell the optimiser itself accepted on that stretch). */
-function lineClear(g: PreparedGrid, a: number, b: number, maxAllowedQ: number, maxQ: number) {
-  const ac = a % g.width;
-  const ar = (a / g.width) | 0;
-  const bc = b % g.width;
-  const br = (b / g.width) | 0;
-  const steps = Math.ceil(Math.max(Math.abs(bc - ac), Math.abs(br - ar)) * 4);
-  for (let s = 0; s <= steps; s++) {
-    const t = s / steps;
-    const i = Math.round(ar + (br - ar) * t) * g.width + Math.round(ac + (bc - ac) * t);
-    if (!traversable(g, i, maxQ) || g.slope[i] > maxAllowedQ || g.confidence[i] === 1) return false;
-  }
-  return true;
-}
-
-function simplifyPath(g: PreparedGrid, path: number[], maxQ: number, maxSpan = 15): number[] {
-  if (path.length < 3) return path;
-  const out = [path[0]];
-  let i = 0;
-  while (i < path.length - 1) {
-    let best = i + 1;
-    let maxAllowed = Math.max(g.slope[path[i]], g.slope[path[i + 1]]);
-    for (let j = i + 2; j < path.length && j - i <= maxSpan; j++) {
-      maxAllowed = Math.max(maxAllowed, g.slope[path[j]]);
-      if (lineClear(g, path[i], path[j], maxAllowed, maxQ)) best = j;
-    }
-    out.push(path[best]);
-    i = best;
-  }
-  return out;
-}
-
-/** Evaluate distance/time/energy on the FINAL displayed geometry, densified at ≤ cell spacing. */
-function measure(g: PreparedGrid, v: VehicleModel, cells: number[]) {
+/** Evaluate distance/time/energy on the FINAL displayed geometry, densified at ≤ one cell spacing. */
+function measure(g: PreparedGrid, v: VehicleModel, pts: CellPt[]) {
   const coords: [number, number][] = [];
   const elev: number[] = [];
   const cellIdx: number[] = [];
-  for (let k = 0; k < cells.length - 1; k++) {
-    const a = cells[k];
-    const b = cells[k + 1];
-    const pa = cellToLngLat(g, a % g.width, (a / g.width) | 0);
-    const pb = cellToLngLat(g, b % g.width, (b / g.width) | 0);
-    const span = Math.max(Math.abs((b % g.width) - (a % g.width)), Math.abs(((b / g.width) | 0) - ((a / g.width) | 0)));
-    const steps = Math.max(1, span);
+  const toLL = (p: CellPt): [number, number] => [g.lon0 + p[0] * g.dlon, g.lat0 - p[1] * g.dlat];
+  const push = (p: CellPt) => {
+    coords.push(toLL(p));
+    const c = Math.min(g.width - 1, Math.max(0, Math.round(p[0])));
+    const r = Math.min(g.height - 1, Math.max(0, Math.round(p[1])));
+    cellIdx.push(r * g.width + c);
+  };
+  for (let k = 0; k < pts.length - 1; k++) {
+    const a = pts[k];
+    const b = pts[k + 1];
+    const steps = Math.max(1, Math.ceil(Math.max(Math.abs(b[0] - a[0]), Math.abs(b[1] - a[1]))));
     for (let s = 0; s < steps; s++) {
       const t = s / steps;
-      const p: [number, number] = [pa[0] + (pb[0] - pa[0]) * t, pa[1] + (pb[1] - pa[1]) * t];
-      coords.push(p);
-      const ci = lngLatToCell(g, p[0], p[1]);
-      cellIdx.push(ci.r * g.width + ci.c);
+      push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]);
     }
   }
-  const last = cells[cells.length - 1];
-  coords.push(cellToLngLat(g, last % g.width, (last / g.width) | 0));
-  cellIdx.push(last);
+  push(pts[pts.length - 1]);
   for (let k = 0; k < coords.length; k++) {
     const e = elevationAt(g, coords[k][0], coords[k][1]);
     elev.push(Number.isFinite(e) ? e : g.elev[cellIdx[k]]);
@@ -456,7 +419,7 @@ export function computeRoute(
   v: VehicleModel,
   from: [number, number],
   to: [number, number],
-  opts: { simplify?: boolean; heuristic?: boolean } = {},
+  opts: { simplify?: boolean; smooth?: boolean; heuristic?: boolean } = {},
 ): RouteResult {
   const t0 = now();
   const fail = (reason: RouteFailureReason, message: string): RouteFailure => ({ ok: false, reason, message, computeMs: now() - t0 });
@@ -500,8 +463,8 @@ export function computeRoute(
         : 'No route exists through observed terrain: the points are separated by gaps in the elevation model, and GeoMars never routes over unobserved ground.',
     );
   }
-  const cells = opts.simplify === false ? res.path : simplifyPath(g, res.path, maxQ);
-  const m = measure(g, v, cells);
+  const pts = refineGeometry(g, res.path, maxQ, opts, v.cautionSlopeDeg, [from, to], [s.distM === 0, e.distM === 0]);
+  const m = measure(g, v, pts);
   const sp = cellToLngLat(g, s.index % g.width, (s.index / g.width) | 0);
   const ep = cellToLngLat(g, e.index % g.width, (e.index / g.width) | 0);
   const straight = Math.hypot(
@@ -517,4 +480,46 @@ export function computeRoute(
     snappedStartM: s.distM,
     snappedEndM: e.distM,
   };
+}
+
+/**
+ * Displayed geometry: raw cell path → any-angle string pulling → terrain-validated corner arcs.
+ * When an endpoint lies inside its routing cell (not snapped), the route starts/ends exactly at the
+ * selected point, provided the connecting segment stays on acceptable terrain.
+ */
+function refineGeometry(
+  g: PreparedGrid,
+  path: number[],
+  maxQ: number,
+  opts: { simplify?: boolean; smooth?: boolean },
+  softSlopeDeg: number,
+  ends: [[number, number], [number, number]],
+  exact: [boolean, boolean],
+): CellPt[] {
+  let pts: CellPt[];
+  if (opts.simplify === false) pts = path.map((i) => [i % g.width, (i / g.width) | 0]);
+  else pts = stringPull(g, path, maxQ);
+  const rule = { maxQ, allowedQ: maxQ, allowLow: true };
+  const frac = (p: [number, number]): CellPt => [(p[0] - g.lon0) / g.dlon, (g.lat0 - p[1]) / g.dlat];
+  if (opts.simplify !== false) {
+    if (exact[0]) {
+      const f = frac(ends[0]);
+      if (pts.length > 1 && segmentClear(g, f, pts[1], rule)) pts[0] = f;
+      else pts.unshift(f);
+    }
+    if (exact[1]) {
+      const f = frac(ends[1]);
+      const n = pts.length;
+      if (n > 1 && segmentClear(g, pts[n - 2], f, rule)) pts[n - 1] = f;
+      else pts.push(f);
+    }
+  }
+  if (opts.smooth === false || opts.simplify === false) return pts;
+  const midRow = Math.min(g.height - 1, Math.max(0, Math.round(pts[(pts.length / 2) | 0][1])));
+  // Smoothing may use any observed cell below the caution band (or no steeper than what the optimum
+  // already crossed nearby) — never above the hard limit, never unobserved or newly low-confidence.
+  const softQ = Math.min(maxQ, Math.floor(softSlopeDeg / g.slopeScale + 1e-9));
+  const filleted = filletCorners(g, pts, maxQ, g.cellDx[midRow], g.cellDy, { softQ });
+  // spread curvature: resample at ½ cell (20 m) and relax under the same terrain constraints
+  return relax(g, densify(filleted, 0.5), maxQ, { softQ });
 }
