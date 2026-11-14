@@ -6,13 +6,14 @@ import { setMap } from './mapRef';
 import { destinationMarkerEl, inspectMarkerEl, originMarkerEl, poiMarkerEl } from './markers';
 import { useStore, type LayerState } from '../state/store';
 import { LOCAL_VIEW, TRUE_SCALE_EXAGGERATION } from '../config/constants';
-import { NavigationController, easeInOutCubic } from '../navigation/controller';
+import { NavigationController } from '../navigation/controller';
+import { easeInOutCubic } from './easing';
 import { routing } from '../routing/client';
 import { geologyAt } from '../data/geology';
 import { themisAt, type Poi } from '../data/loaders';
 import { marsDistance, type LngLat } from '../geo/mars';
 import { cancelReveal, showRoute } from './routeReveal';
-import { routePadding } from '../state/actions';
+import { boundsOf, routePadding } from '../state/actions';
 import { PoiLayout } from './poiLayout';
 
 const LAYER_IDS: Record<keyof LayerState, string[]> = {
@@ -37,41 +38,99 @@ function setVisible(map: MlMap, id: string, v: boolean) {
   if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', v ? 'visible' : 'none');
 }
 
-/** Intro: Mars from space → planetary rotation → cinematic descent onto Jezero. */
-function runIntro(map: MlMap, onDone: () => void) {
-  let cancelled = false;
+/**
+ * Intro timeline (V1.2, ≈6.6 s of camera motion, was ≈16.8 s in V1.0):
+ *   0.0 s  Mars in space, planet already turning (constant angular velocity, no idle pause)
+ *   1.5 s  cinematic descent onto Jezero (flyTo, fast departure, long soft landing, slight tilt)
+ *   5.3 s  settle into the top-down working view
+ *   6.6 s  map ready, UI appears
+ * Stages are chained with owned timers (not `moveend`), so user input, skips or unmounts can never
+ * leave a stray stage running. Skip/interaction jumps straight to the working view.
+ */
+export const INTRO_TIMING = { rotateMs: 1500, descentMs: 3800, settleMs: 1300 } as const;
+export const INTRO_TOTAL_MS = INTRO_TIMING.rotateMs + INTRO_TIMING.descentMs + INTRO_TIMING.settleMs;
+
+interface IntroHandle {
+  skip: () => void;
+  dispose: () => void;
+}
+let activeIntro: IntroHandle | null = null;
+let skipRequested = false;
+
+function jumpToWorkingView(map: MlMap) {
+  map.stop();
+  map.jumpTo({ center: LOCAL_VIEW.center, zoom: LOCAL_VIEW.zoom, pitch: 0, bearing: 0 });
+}
+
+function runIntro(map: MlMap, onDone: () => void): IntroHandle {
+  let finished = false;
+  const timers: number[] = [];
+  const at = (ms: number, fn: () => void) => timers.push(window.setTimeout(() => !finished && fn(), ms));
+  const canvas = map.getCanvasContainer();
+  const onUserInput = () => handle.skip();
+  const cleanup = () => {
+    timers.forEach((t) => window.clearTimeout(t));
+    timers.length = 0;
+    canvas.removeEventListener('wheel', onUserInput);
+    canvas.removeEventListener('pointerdown', onUserInput);
+  };
   const finish = () => {
-    if (cancelled) return;
-    cancelled = true;
+    if (finished) return;
+    finished = true;
+    cleanup();
     onDone();
   };
-  (map as unknown as { __skipIntro?: () => void }).__skipIntro = () => {
-    if (cancelled) return;
-    map.stop();
-    map.jumpTo({ center: LOCAL_VIEW.center, zoom: LOCAL_VIEW.zoom, pitch: 0, bearing: 0 });
-    finish();
+  const handle: IntroHandle = {
+    skip: () => {
+      if (finished) return;
+      jumpToWorkingView(map);
+      finish();
+    },
+    dispose: () => {
+      finished = true;
+      cleanup();
+    },
   };
-  // 1. slow planetary rotation (≈ 5 s)
-  map.easeTo({ center: [52, 14], zoom: 1.75, duration: 5200, easing: (t) => t, essential: true });
-  map.once('moveend', () => {
-    if (cancelled) return;
-    // 2. descent: fly into Jezero with a slight cinematic tilt, then settle top-down
+  // Grabbing or scrolling the globe during the intro means "let me use the map": skip cleanly.
+  canvas.addEventListener('wheel', onUserInput, { passive: true });
+  canvas.addEventListener('pointerdown', onUserInput);
+
+  const { rotateMs, descentMs, settleMs } = INTRO_TIMING;
+  // 1. rotation at constant angular velocity — the planet is already moving when the intro opens
+  map.easeTo({ center: [42, 13], zoom: 1.8, duration: rotateMs, easing: (t) => t, essential: true });
+  // 2. descent: departs with momentum (matches the rotation), long soft landing over Jezero
+  at(rotateMs, () =>
     map.flyTo({
-      center: [77.55, 18.43],
-      zoom: 10.4,
-      pitch: 38,
-      bearing: -12,
-      curve: 1.55,
-      speed: 0.62,
+      center: [77.52, 18.44],
+      zoom: 10.8,
+      pitch: 34,
+      bearing: -10,
+      duration: descentMs,
+      easing: (t) => 1 - (1 - t) ** 2.4,
       essential: true,
-      easing: easeInOutCubic,
-    });
-    map.once('moveend', () => {
-      if (cancelled) return;
-      map.easeTo({ center: LOCAL_VIEW.center, zoom: LOCAL_VIEW.zoom, pitch: 0, bearing: 0, duration: 2200, easing: easeInOutCubic });
-      map.once('moveend', finish);
-    });
-  });
+    }),
+  );
+  // 3. settle into the top-down working view
+  at(rotateMs + descentMs, () =>
+    map.easeTo({ center: LOCAL_VIEW.center, zoom: LOCAL_VIEW.zoom, pitch: 0, bearing: 0, duration: settleMs, easing: easeInOutCubic, essential: true }),
+  );
+  at(rotateMs + descentMs + settleMs, finish);
+  return handle;
+}
+
+/** Skip the intro at any moment — before the map has loaded, during rotation, descent or settle. */
+export function skipIntro() {
+  const s = useStore.getState();
+  if (s.phase === 'ready') return;
+  useStore.setState({ introSkipped: true });
+  if (activeIntro) {
+    activeIntro.skip();
+    return;
+  }
+  // map not loaded yet: remember the request and move the camera now so Jezero tiles load first
+  skipRequested = true;
+  const map = (window as unknown as { __geomarsMap?: MlMap }).__geomarsMap;
+  if (map) jumpToWorkingView(map);
 }
 
 async function inspectAt(lngLat: LngLat) {
@@ -274,11 +333,15 @@ export function MapView() {
       buildPoiMarkers();
       onZoom();
       useStore.setState({ dataReady: true });
-      const done = () => useStore.setState({ phase: 'ready' });
-      if (reduceMotion) {
-        map.jumpTo({ center: LOCAL_VIEW.center, zoom: LOCAL_VIEW.zoom });
+      const done = () => {
+        activeIntro = null;
+        useStore.setState({ phase: 'ready' });
+      };
+      if (reduceMotion || skipRequested || useStore.getState().introSkipped) {
+        // reduced motion or already skipped: no camera animation, straight to the working view
+        jumpToWorkingView(map);
         done();
-      } else window.setTimeout(() => runIntro(map, done), 700);
+      } else activeIntro = runIntro(map, done);
     });
 
     // adaptive quality: lower pixel ratio on sustained low frame rates (performance > detail)
@@ -319,15 +382,15 @@ export function MapView() {
         else if (prev.appMode === 'navigation') {
           const r = s.route;
           if (r) {
-            const b = new maplibregl.LngLatBounds();
-            r.coordinates.forEach((c) => b.extend(c));
-            map.fitBounds(b, { padding: routePadding(), pitch: s.view3d ? 50 : 0, bearing: 0, duration: 1600, maxZoom: 15 });
+            map.fitBounds(boundsOf(r.coordinates), { padding: routePadding(), pitch: s.view3d ? 50 : 0, bearing: 0, duration: 1600, maxZoom: 15 });
           } else map.easeTo({ pitch: s.view3d ? 50 : 0, bearing: 0, duration: 1200 });
         }
       }
     });
 
     return () => {
+      activeIntro?.dispose();
+      activeIntro = null;
       unsub();
       poiLayout.dispose();
       cancelReveal();
@@ -341,7 +404,3 @@ export function MapView() {
   return <div ref={ref} className="gm-map" role="application" aria-label="Interactive map of Jezero Crater, Mars" />;
 }
 
-export function skipIntro() {
-  const m = (window as unknown as { __geomarsMap?: MlMap }).__geomarsMap as unknown as { __skipIntro?: () => void } | undefined;
-  m?.__skipIntro?.();
-}

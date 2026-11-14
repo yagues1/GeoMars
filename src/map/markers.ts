@@ -19,10 +19,27 @@ export function destinationMarkerEl() {
   return el;
 }
 
-/** Navigation puck: minimal copper chevron with a white rim, flat ground halo, map-aligned. */
-export function navArrowEl() {
+/**
+ * Navigation puck, map-aligned. Rover: minimal copper chevron with a white rim and ground halo.
+ * Walking: compact copper-cored disc with a soft heading beam — a lighter, pedestrian-scale mark.
+ */
+export function navArrowEl(mode: 'rover' | 'walking' = 'rover') {
   const el = document.createElement('div');
+  if (mode === 'walking') {
+    el.className = 'gm-nav-arrow walking';
+    el.setAttribute('aria-label', 'Astronaut on foot');
+    el.innerHTML = `<div class="gm-nav-halo"></div><svg width="48" height="48" viewBox="0 0 48 48" aria-hidden="true">
+    <defs>
+      <radialGradient id="gmWalkBeam" cx="50%" cy="100%" r="100%"><stop offset="0" stop-color="#ffd2ad" stop-opacity=".85"/><stop offset=".6" stop-color="#ffb47e" stop-opacity=".35"/><stop offset="1" stop-color="#ffb47e" stop-opacity="0"/></radialGradient>
+      <linearGradient id="gmWalkCore" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffb47e"/><stop offset="1" stop-color="#f06a24"/></linearGradient>
+    </defs>
+    <path d="M24 24 L8 1 A28 28 0 0 1 40 1 Z" fill="url(#gmWalkBeam)"/>
+    <circle cx="24" cy="24" r="10.5" fill="#fff8f1"/>
+    <circle cx="24" cy="24" r="7.6" fill="url(#gmWalkCore)"/></svg>`;
+    return el;
+  }
   el.className = 'gm-nav-arrow';
+  el.setAttribute('aria-label', 'Rover');
   el.innerHTML = `<div class="gm-nav-halo"></div><svg width="44" height="44" viewBox="0 0 44 44" aria-hidden="true">
     <defs>
       <linearGradient id="gmArrow" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffb47e"/><stop offset="1" stop-color="#f06a24"/></linearGradient>

@@ -1,10 +1,10 @@
 import { useMemo } from 'react';
 import { useStore } from '../../state/store';
-import { positionAtTime, TIME_WARP } from '../../navigation/simulator';
+import { playbackWarp, positionAtTime } from '../../navigation/simulator';
 import { angleDelta, bearing, formatCoord, formatDistance, formatDuration } from '../../geo/mars';
 import { backToPlanning, continueFromDestination, restartNavigation } from '../../state/actions';
-import { DEFAULT_VEHICLE } from '../../routing/vehicle';
-import { IconClose, IconPause, IconPlay, IconRestart, IconRoute, IconTurnLeft, IconTurnRight, IconWarning, IconFlag, IconSample } from '../icons/Icons';
+import { nominalKmh, profileFor } from '../../routing/vehicle';
+import { IconClose, IconPause, IconPlay, IconRestart, IconRover, IconRoute, IconTurnLeft, IconTurnRight, IconWalk, IconWarning, IconFlag, IconSample } from '../icons/Icons';
 import type { RouteSuccess } from '../../routing/astar';
 import { marsDistance } from '../../geo/mars';
 
@@ -19,10 +19,11 @@ function nextInstruction(route: RouteSuccess, distanceM: number, destLabel: stri
   const remaining = route.distanceM - distanceM;
   if (remaining < 250) return { kind: 'arrive', text: `Arriving at ${destLabel ?? 'destination'}`, inM: remaining };
   const { cumDist, coordinates, segSlope } = route;
+  const caution = profileFor(route.mode).cautionSlopeDeg;
   let k = 0;
   while (k < cumDist.length - 1 && cumDist[k + 1] <= distanceM) k++;
   for (let j = k; j < coordinates.length - 2 && cumDist[j] - distanceM < 400; j++) {
-    if (segSlope[j] > DEFAULT_VEHICLE.cautionSlopeDeg && cumDist[j] > distanceM) {
+    if (segSlope[j] > caution && cumDist[j] > distanceM) {
       return { kind: 'slope', text: `Steep section ahead · ${segSlope[j].toFixed(0)}°`, inM: cumDist[j] - distanceM };
     }
   }
@@ -49,6 +50,7 @@ export function NavHUD() {
   const pos = useMemo(() => (route ? positionAtTime(route, t) : null), [route, t]);
   if (!route || !pos) return null;
   const progress = route.distanceM > 0 ? pos.distanceM / route.distanceM : 0;
+  const profile = profileFor(route.mode);
   const instr = status === 'running' || status === 'paused' ? nextInstruction(route, pos.distanceM, destLabel) : null;
 
   return (
@@ -69,7 +71,11 @@ export function NavHUD() {
           <div>
             <div className="gm-big">{status === 'arrived' ? 'Arrived' : formatDuration(pos.remainingS)}</div>
             <div className="gm-sub">
-              {formatDistance(pos.remainingM)} remaining · simulation ×{TIME_WARP}
+              {formatDistance(pos.remainingM)} remaining · simulation ×{playbackWarp(route)}
+            </div>
+            <div className="gm-nav-mode">
+              {route.mode === 'walking' ? <IconWalk size={13} /> : <IconRover size={13} />}
+              {profile.label} · {nominalKmh(profile)} km/h nominal
             </div>
           </div>
           <button className="gm-icon-btn lg" onClick={backToPlanning} aria-label="Exit navigation and return to planning" title="Return to planning">
@@ -102,7 +108,7 @@ export function NavHUD() {
             <IconRoute size={16} /> Planning
           </button>
         </div>
-        <p className="gm-fine center">Estimated visualisation — not live rover telemetry.</p>
+        <p className="gm-fine center">Estimated visualisation — not live telemetry.</p>
       </div>
     </div>
   );
@@ -128,7 +134,9 @@ export function ArrivalCard() {
   }
   return (
     <div className="gm-arrival glass gm-arrival-in" role="dialog" aria-label="Arrived at destination">
-      <div className="gm-arrival-kicker">Destination reached · {formatDistance(route.distanceM)} in {formatDuration(route.timeS)} (est.)</div>
+      <div className="gm-arrival-kicker">
+        Destination reached · {profileFor(route.mode).label} · {formatDistance(route.distanceM)} in {formatDuration(route.timeS)} (est.)
+      </div>
       <h2>{poi?.name ?? label ?? 'Surface destination'}</h2>
       <div className="gm-sub">{formatCoord(poi ? [poi.lon, poi.lat] : end, 4)}</div>
       <p className="gm-desc">

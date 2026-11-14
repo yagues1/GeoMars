@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { useStore } from '../../state/store';
-import { calculateRoute, enterNavigationPaused, flyTo, startNavigation } from '../../state/actions';
+import { calculateRoute, enterNavigationPaused, flyTo, setTravelMode, startNavigation } from '../../state/actions';
 import { formatCoord, formatDistance, formatDuration } from '../../geo/mars';
-import { DEFAULT_VEHICLE } from '../../routing/vehicle';
+import { MOBILITY_PROFILES, nominalKmh, profileFor, type TravelMode } from '../../routing/vehicle';
 import { GEO_UNITS } from '../../data/geology';
 import { DATASETS } from '../../data/datasets';
-import { IconBolt, IconChevron, IconClose, IconExplore, IconEye, IconFlag, IconInfo, IconMountain, IconNav, IconRoute, IconSample, IconSlope, IconSwap, IconWarning } from '../icons/Icons';
+import { IconBolt, IconChevron, IconClose, IconExplore, IconEye, IconFlag, IconInfo, IconMountain, IconNav, IconRover, IconRoute, IconSample, IconSlope, IconSwap, IconWalk, IconWarning } from '../icons/Icons';
 import { StatusTag } from './StatusTag';
 
 export function ToolSwitch() {
@@ -34,6 +34,46 @@ export function PlanningPanel() {
 }
 
 /* ------------------------------------------------------------------ Route tool */
+const MODE_ORDER: TravelMode[] = ['rover', 'walking'];
+
+/** Compact transport selector (Google-Maps-like). The choice is part of the routing configuration. */
+export function TravelModeSelector() {
+  const mode = useStore((s) => s.travelMode);
+  const idx = MODE_ORDER.indexOf(mode);
+  const onKey = (e: React.KeyboardEvent) => {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    e.preventDefault();
+    const next = MODE_ORDER[(idx + (e.key === 'ArrowRight' ? 1 : MODE_ORDER.length - 1)) % MODE_ORDER.length];
+    setTravelMode(next);
+    (e.currentTarget.querySelector(`[data-mode="${next}"]`) as HTMLElement | null)?.focus();
+  };
+  return (
+    <div className="gm-seg gm-travel" role="radiogroup" aria-label="Travel mode" onKeyDown={onKey}>
+      {MODE_ORDER.map((m) => {
+        const p = MOBILITY_PROFILES[m];
+        const on = m === mode;
+        return (
+          <button
+            key={m}
+            data-mode={m}
+            role="radio"
+            aria-checked={on}
+            tabIndex={on ? 0 : -1}
+            className={on ? 'on' : ''}
+            onClick={() => setTravelMode(m)}
+            title={`${p.label} — ${nominalKmh(p)} km/h nominal`}
+          >
+            {m === 'rover' ? <IconRover size={17} /> : <IconWalk size={17} />}
+            <span className="gm-travel-label">{p.label}</span>
+            <span className="gm-travel-speed">{nominalKmh(p)} km/h</span>
+          </button>
+        );
+      })}
+      <span className="gm-seg-thumb" style={{ transform: `translateX(${idx * 100}%)` }} />
+    </div>
+  );
+}
+
 function swapEnds() {
   const s = useStore.getState();
   if (!s.origin || !s.destination) return;
@@ -55,8 +95,11 @@ function RouteTool() {
   const [details, setDetails] = useState(false);
   const step = !s.origin ? 1 : !s.destination ? 2 : 3;
   const computing = s.routeStatus === 'computing';
+  const profile = profileFor(s.travelMode);
+  const walking = s.travelMode === 'walking';
   return (
     <div className="gm-route">
+      <TravelModeSelector />
       <div className={`gm-stops step-${step}`}>
         <div className={`gm-field ${step === 1 ? 'active' : ''} ${s.origin ? 'filled' : ''}`}>
           <span className="gm-field-icon origin" aria-hidden="true" />
@@ -91,7 +134,7 @@ function RouteTool() {
         <button className={`gm-btn primary block lg ${computing ? 'is-loading' : ''}`} onClick={() => void calculateRoute()} disabled={computing}>
           {computing ? (
             <>
-              <span className="gm-spinner" /> Optimising over terrain…
+              <span className="gm-spinner" /> Optimising {walking ? 'walking' : 'rover'} route…
             </>
           ) : (
             <>
@@ -105,18 +148,22 @@ function RouteTool() {
         <div className="gm-alert gm-pop-in" role="alert">
           <IconWarning size={18} />
           <div>
-            <strong>No defensible route</strong>
+            <strong>No defensible {walking ? 'walking' : 'rover'} route</strong>
             <p>{s.routeError.message}</p>
           </div>
         </div>
       )}
 
-      {s.route && s.routeStatus === 'done' && (
-        <div className="gm-summary gm-pop-in">
+      {s.route && s.routeStatus === 'done' && s.route.mode === s.travelMode && (
+        <div className="gm-summary gm-pop-in" key={s.route.mode}>
           <div className="gm-summary-head">
+            <div className="gm-mode-chip">
+              {walking ? <IconWalk size={14} /> : <IconRover size={14} />}
+              {profile.label} <span className="gm-dim">· {nominalKmh(profile)} km/h nominal</span>
+            </div>
             <div className="gm-eta">{formatDuration(s.route.timeS)}</div>
             <div className="gm-eta-sub">
-              {formatDistance(s.route.distanceM)} <span className="gm-dot-sep" /> estimated drive
+              {formatDistance(s.route.distanceM)} <span className="gm-dot-sep" /> estimated {walking ? 'walk' : 'drive'}
             </div>
           </div>
           <div className="gm-stats">
@@ -124,28 +171,42 @@ function RouteTool() {
               <IconMountain size={14} />
               <span>+{Math.round(s.route.ascentM)} m</span>
             </div>
-            <div className="gm-stat" title={`Steepest slope crossed (vehicle limit ${DEFAULT_VEHICLE.maxSlopeDeg}°)`}>
+            <div className="gm-stat" title={`Steepest slope crossed (${walking ? 'walking' : 'vehicle'} limit ${profile.maxSlopeDeg}°)`}>
               <IconSlope size={14} />
               <span>{s.route.maxSlopeDeg.toFixed(0)}° max</span>
             </div>
-            <div className="gm-stat" title="Estimated traction energy">
-              <IconBolt size={14} />
-              <span>{s.route.energyKWh.toFixed(1)} kWh</span>
-            </div>
+            {s.route.energyKWh !== null ? (
+              <div className="gm-stat" title="Estimated rover traction energy">
+                <IconBolt size={14} />
+                <span>{s.route.energyKWh.toFixed(1)} kWh</span>
+              </div>
+            ) : (
+              <div className="gm-stat" title="Effective average speed over terrain (estimated) — lower than the nominal speed on slopes">
+                <IconWalk size={14} />
+                <span>{((s.route.distanceM / Math.max(1, s.route.timeS)) * 3.6).toFixed(1)} km/h avg</span>
+              </div>
+            )}
           </div>
           {(s.route.snappedStartM > 0 || s.route.snappedEndM > 0) && (
             <p className="gm-note">Endpoint moved {Math.round(Math.max(s.route.snappedStartM, s.route.snappedEndM))} m to the nearest safe, observed terrain.</p>
           )}
           {s.route.cautionFraction > 0.02 && (
             <p className="gm-note warn">
-              <IconWarning size={14} /> {Math.round(s.route.cautionFraction * 100)}% of the route crosses 15–20° slopes.
+              <IconWarning size={14} /> {Math.round(s.route.cautionFraction * 100)}% of the route crosses {profile.cautionSlopeDeg}–{profile.maxSlopeDeg}° slopes
+              {walking ? ' (difficult footing).' : '.'}
+            </p>
+          )}
+          {profile.advisoryDurationS !== null && s.route.timeS > profile.advisoryDurationS && (
+            <p className="gm-note warn">
+              <IconWarning size={14} /> Long walking traverse: over {Math.round(profile.advisoryDurationS / 3600)} h of estimated walking time (planning
+              assumption, not an EVA limit).
             </p>
           )}
           <button className="gm-btn primary block lg gm-start" onClick={startNavigation}>
             <IconNav size={18} /> Start navigation
           </button>
           <div className="gm-row gap split">
-            <button className="gm-btn subtle" onClick={enterNavigationPaused} title="Open Astronaut Navigation without starting the drive">
+            <button className="gm-btn subtle" onClick={enterNavigationPaused} title={`Open Astronaut Navigation without starting the ${walking ? 'walk' : 'drive'}`}>
               <IconEye size={16} /> Preview
             </button>
             <button className="gm-btn subtle" onClick={s.clearRoute}>
@@ -166,8 +227,8 @@ function RouteTool() {
       )}
       {!s.origin && (
         <p className="gm-fine">
-          Routes use the 20 m CTX elevation model of Jezero. Terrain steeper than {DEFAULT_VEHICLE.maxSlopeDeg}° and areas without elevation data are never
-          crossed.
+          Routes use the 20 m CTX elevation model of Jezero. {profile.label} routes never cross terrain steeper than {profile.maxSlopeDeg}°; areas without
+          elevation data are never crossed in any mode.
         </p>
       )}
     </div>
@@ -176,25 +237,40 @@ function RouteTool() {
 
 function RouteDetails() {
   const r = useStore((s) => s.route)!;
-  const v = DEFAULT_VEHICLE;
+  const v = profileFor(r.mode);
   return (
     <div className="gm-details">
       <dl className="gm-kv">
         <dt>Surface distance</dt><dd>{formatDistance(r.distanceM)} <StatusTag s="derived" /></dd>
         <dt>Straight line</dt><dd>{formatDistance(r.straightLineM)}</dd>
+        <dt>Travel mode</dt><dd>{v.label} · {nominalKmh(v)} km/h nominal</dd>
         <dt>Travel time</dt><dd>{formatDuration(r.timeS)} <StatusTag s="estimated" /></dd>
-        <dt>Traction energy</dt><dd>{r.energyKWh.toFixed(1)} kWh <StatusTag s="estimated" /></dd>
+        <dt>Effective speed</dt><dd>{((r.distanceM / Math.max(1, r.timeS)) * 3.6).toFixed(1)} km/h average <StatusTag s="estimated" /></dd>
+        {r.energyKWh !== null && (
+          <>
+            <dt>Traction energy</dt><dd>{r.energyKWh.toFixed(1)} kWh <StatusTag s="estimated" /></dd>
+          </>
+        )}
         <dt>Ascent / descent</dt><dd>+{Math.round(r.ascentM)} m / −{Math.round(r.descentM)} m</dd>
-        <dt>Max slope crossed</dt><dd>{r.maxSlopeDeg.toFixed(1)}° (limit {v.maxSlopeDeg}°)</dd>
+        <dt>Max slope crossed</dt><dd>{r.maxSlopeDeg.toFixed(1)}° ({v.label.toLowerCase()} limit {v.maxSlopeDeg}°)</dd>
         <dt>Mean slope</dt><dd>{r.meanSlopeDeg.toFixed(1)}°</dd>
         <dt>Near DEM gaps</dt><dd>{(r.lowConfidenceFraction * 100).toFixed(1)}% of route</dd>
         <dt>Search</dt><dd>A* · {r.expanded.toLocaleString('en')} cells · {Math.round(r.computeMs)} ms</dd>
       </dl>
-      <p className="gm-fine">
-        Vehicle model (estimated, not a real vehicle specification): {Math.round(v.nominalSpeedMs * 3.6)} km/h nominal, {v.massKg} kg, rolling resistance{' '}
-        {v.rollingResistance}, drivetrain η {v.drivetrainEfficiency}, Mars g 3.71 m/s². Slopes from the 20 m CTX DEM; obstacles smaller than ~40–60 m are not
-        resolved. Not a safety-certified traverse plan.
-      </p>
+      {v.traction ? (
+        <p className="gm-fine">
+          Rover model (estimated, not a real vehicle specification): {nominalKmh(v)} km/h nominal, slope limit {v.maxSlopeDeg}° (caution from {v.cautionSlopeDeg}°),{' '}
+          {v.traction.massKg} kg, rolling resistance {v.traction.rollingResistance}, drivetrain η {v.traction.drivetrainEfficiency}, Mars g 3.71 m/s². Slopes from the
+          20 m CTX DEM; obstacles smaller than ~40–60 m are not resolved. Not a safety-certified traverse plan.
+        </p>
+      ) : (
+        <p className="gm-fine">
+          Walking model (estimated planning assumptions — not certified NASA spacesuit or EVA limits): {nominalKmh(v)} km/h nominal on level ground, slowed on
+          uphill and steep downhill grades (Tobler-shaped pedestrian response) and on sloping ground; slope limit {v.maxSlopeDeg}°, caution from{' '}
+          {v.cautionSlopeDeg}°, stronger avoidance of DEM gaps. No vehicle mass, rolling resistance or motor energy applies. Slopes from the 20 m CTX DEM averaged
+          over 40 m cells — local slopes and boulders are not resolved.
+        </p>
+      )}
     </div>
   );
 }
@@ -307,6 +383,7 @@ export function PoiCard() {
 
 function InspectCard() {
   const i = useStore((s) => s.inspect)!;
+  const prof = profileFor(useStore((s) => s.travelMode));
   const t = i.terrain;
   const unit = i.geologyUnit ? GEO_UNITS[i.geologyUnit] : null;
   const [more, setMore] = useState(false);
@@ -330,7 +407,7 @@ function InspectCard() {
           {t?.covered && t.slope !== undefined ? (
             <>
               {t.slope.toFixed(1)}° <StatusTag s="derived" />
-              {t.slope >= DEFAULT_VEHICLE.maxSlopeDeg ? <span className="gm-chip red">no-go</span> : t.slope >= DEFAULT_VEHICLE.cautionSlopeDeg ? <span className="gm-chip amber">caution</span> : null}
+              {t.slope >= prof.maxSlopeDeg ? <span className="gm-chip red" title={`${prof.label} limit ${prof.maxSlopeDeg}°`}>no-go · {prof.label.toLowerCase()}</span> : t.slope >= prof.cautionSlopeDeg ? <span className="gm-chip amber" title={`${prof.label} caution from ${prof.cautionSlopeDeg}°`}>caution · {prof.label.toLowerCase()}</span> : null}
             </>
           ) : (
             <Unavailable />

@@ -4,12 +4,16 @@
  */
 import maplibregl, { type GeoJSONSource, type Map as MlMap } from 'maplibre-gl';
 import { useStore } from '../state/store';
-import { positionAtTime, TIME_WARP } from './simulator';
+import { playbackWarp, positionAtTime } from './simulator';
 import { arrivalPulseEl, navArrowEl } from '../map/markers';
 import { angleDelta } from '../geo/mars';
+import { easeInOutCubic } from '../map/easing';
 
 /** Follow-camera zoom: close to the native 5 m/px resolution of the CTX orthomosaic (z14). */
 const NAV_ZOOM = 14.7;
+/** Walking moves ~3× slower: a slightly closer camera keeps the motion readable. */
+const NAV_ZOOM_WALK = 15.2;
+const navZoom = (mode: string | undefined) => (mode === 'walking' ? NAV_ZOOM_WALK : NAV_ZOOM);
 
 export class NavigationController {
   private map: MlMap;
@@ -64,12 +68,15 @@ export class NavigationController {
     this.camBearing = p.heading;
     this.arrowBearing = p.tangent;
     this.ensureArrow(p.lngLat, p.tangent);
-    this.map.easeTo({ center: p.lngLat, offset: this.camOffset(), zoom: NAV_ZOOM, pitch: 62, bearing: p.heading, duration: 1800, easing: easeInOutCubic });
+    this.map.easeTo({ center: p.lngLat, offset: this.camOffset(), zoom: navZoom(route.mode), pitch: 62, bearing: p.heading, duration: 1800, easing: easeInOutCubic });
   }
 
   private ensureArrow(lngLat: [number, number], heading: number) {
     if (!this.arrow) {
-      this.arrow = new maplibregl.Marker({ element: navArrowEl(), rotationAlignment: 'map', pitchAlignment: 'map' })
+      const mode = useStore.getState().route?.mode ?? 'rover';
+      // Rover: flat chevron lying on the terrain. Walking: an upright pedestrian dot facing the camera
+      // (readable under the tilted follow camera), its heading beam still rotating with the map.
+      this.arrow = new maplibregl.Marker({ element: navArrowEl(mode), rotationAlignment: 'map', pitchAlignment: mode === 'walking' ? 'viewport' : 'map' })
         .setLngLat(lngLat)
         .addTo(this.map);
     }
@@ -106,7 +113,7 @@ export class NavigationController {
     this.last = now;
     const { route } = useStore.getState();
     if (!route) return;
-    this.simTime = Math.min(route.timeS, this.simTime + dt * TIME_WARP);
+    this.simTime = Math.min(route.timeS, this.simTime + dt * playbackWarp(route));
     const done = this.renderFrame(false, dt);
     if (now - this.lastUi > 100 || done) {
       this.lastUi = now;
@@ -139,7 +146,7 @@ export class NavigationController {
       geometry: { type: 'LineString', coordinates: done },
     });
     // vehicle sits in the lower third of the view so more of the road ahead is visible
-    this.map.easeTo({ center: p.lngLat, offset: this.camOffset(), bearing: this.camBearing, pitch: 62, zoom: this.map.getZoom() < 13.5 ? NAV_ZOOM : this.map.getZoom(), duration: 0 });
+    this.map.easeTo({ center: p.lngLat, offset: this.camOffset(), bearing: this.camBearing, pitch: 62, zoom: this.map.getZoom() < 13.5 ? navZoom(route.mode) : this.map.getZoom(), duration: 0 });
     return p.done;
   }
 
@@ -162,6 +169,4 @@ export class NavigationController {
   }
 }
 
-export function easeInOutCubic(t: number) {
-  return t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2;
-}
+export { easeInOutCubic };

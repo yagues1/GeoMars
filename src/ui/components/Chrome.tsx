@@ -5,16 +5,25 @@ import { formatCoord } from '../../geo/mars';
 import { DATASETS } from '../../data/datasets';
 import { skipIntro } from '../../map/MapView';
 import { enterNavigationPaused } from '../../state/actions';
-import { GeoMarsLogo, IconChevron, IconClose, IconCompass, IconCube, IconInfo, IconLayers, IconMinus, IconNav, IconPlus } from '../icons/Icons';
+import { GeoMarsLogo, LOGO_SRC, IconChevron, IconClose, IconCompass, IconCube, IconInfo, IconLayers, IconMinus, IconNav, IconPlus } from '../icons/Icons';
 import { StatusTag } from './StatusTag';
 
 export function Brand({ compact = false }: { compact?: boolean }) {
   return (
     <div className={`gm-brand ${compact ? 'compact' : ''}`}>
-      <GeoMarsLogo size={compact ? 26 : 30} />
+      <GeoMarsLogo size={compact ? 30 : 34} />
       <span className="gm-wordmark">
         Geo<span>Mars</span>
       </span>
+    </div>
+  );
+}
+
+/** Intro lockup: the approved logo image itself (it already contains the GeoMars wordmark). */
+export function BrandLockup() {
+  return (
+    <div className="gm-lockup">
+      <img src={LOGO_SRC} alt="GeoMars" className="gm-lockup-img" draggable={false} />
     </div>
   );
 }
@@ -182,24 +191,45 @@ export function SourcesModal() {
 export function IntroOverlay() {
   const phase = useStore((s) => s.phase);
   const dataReady = useStore((s) => s.dataReady);
+  const skipped = useStore((s) => s.introSkipped);
   const [gone, setGone] = useState(false);
   useEffect(() => {
     if (phase === 'ready') {
-      const t = window.setTimeout(() => setGone(true), 1200);
+      const t = window.setTimeout(() => setGone(true), 650);
       return () => window.clearTimeout(t);
     }
   }, [phase]);
+  useEffect(() => {
+    if (phase !== 'intro') return;
+    // Esc skips from anywhere; Enter/Space work on the (Tab-reachable) button natively
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        skipIntro();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [phase]);
   if (gone) return null;
+  const status = skipped ? 'Opening Jezero Crater…' : dataReady ? 'Descending to Jezero · 18.4° N, 77.5° E' : 'Loading NASA & USGS data…';
   return (
-    <div className={`gm-intro ${phase === 'ready' ? 'out' : ''}`}>
-      <div className="gm-intro-title">
-        <Brand />
-        <div className="gm-intro-sub">Terrain-aware navigation · Jezero Crater, Mars</div>
-        <div className="gm-intro-meta">{dataReady ? 'Descending to 18.4° N, 77.5° E' : 'Loading NASA & USGS data…'}</div>
+    <div className={`gm-intro ${phase === 'ready' ? 'out' : ''} ${skipped ? 'skipped' : ''}`} aria-hidden={phase === 'ready'}>
+      <div className="gm-intro-stage">
+        <BrandLockup />
+        <p className="gm-intro-sub">Terrain-aware navigation · Jezero Crater, Mars</p>
       </div>
-      <button className="gm-btn ghost gm-skip" onClick={skipIntro} disabled={!dataReady}>
-        Skip intro <IconChevron size={14} />
-      </button>
+      <div className="gm-intro-foot">
+        <div className="gm-intro-status" role="status" aria-live="polite">
+          <span className={`gm-intro-dot ${dataReady ? 'live' : ''}`} aria-hidden="true" />
+          {status}
+        </div>
+        {phase === 'intro' && (
+          <button type="button" className="gm-btn gm-skip glass-lite" onClick={skipIntro} aria-label="Skip intro and open the Jezero map (Esc)">
+            Skip intro <IconChevron size={14} />
+          </button>
+        )}
+      </div>
     </div>
   );
 }

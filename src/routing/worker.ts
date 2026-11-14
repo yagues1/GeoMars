@@ -4,7 +4,7 @@
  * React/map thread. Messages: init → ready, route → result, inspect → terrain sample.
  */
 import { computeRoute, lngLatToCell, prepareGrid, elevationAt, type PreparedGrid } from './astar';
-import { DEFAULT_VEHICLE, type VehicleModel } from './vehicle';
+import { ROVER_PROFILE, type MobilityProfile } from './vehicle';
 import { MARS_GRAVITY } from '../config/constants';
 
 interface GridMeta {
@@ -46,7 +46,7 @@ async function load(base: string) {
 
 type Msg =
   | { type: 'init'; base: string }
-  | { type: 'route'; id: number; from: [number, number]; to: [number, number]; vehicle?: VehicleModel }
+  | { type: 'route'; id: number; from: [number, number]; to: [number, number]; profile?: MobilityProfile }
   | { type: 'inspect'; id: number; lngLat: [number, number] };
 
 self.onmessage = async (ev: MessageEvent<Msg>) => {
@@ -64,7 +64,7 @@ self.onmessage = async (ev: MessageEvent<Msg>) => {
   await loading;
   if (!grid) return;
   if (msg.type === 'route') {
-    const result = computeRoute(grid, msg.vehicle ?? DEFAULT_VEHICLE, msg.from, msg.to);
+    const result = computeRoute(grid, msg.profile ?? ROVER_PROFILE, msg.from, msg.to);
     self.postMessage({ type: 'route', id: msg.id, result });
   } else if (msg.type === 'inspect') {
     const [lon, lat] = msg.lngLat;
