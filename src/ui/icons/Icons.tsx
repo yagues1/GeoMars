@@ -37,30 +37,27 @@ export const IconCube = ({ size, ...p }: P) => (<svg {...base(size)} {...p}><pat
 export const IconTarget = ({ size, ...p }: P) => (<svg {...base(size)} {...p}><circle cx="12" cy="12" r="7.5" /><circle cx="12" cy="12" r="2" fill="currentColor" /><path d="M12 1.8v3M12 19.2v3M1.8 12h3M19.2 12h3" /></svg>);
 export const IconSwap = ({ size, ...p }: P) => (<svg {...base(size)} {...p}><path d="M7 4v16M7 4 4 7M7 4l3 3M17 20V4M17 20l-3-3M17 20l3-3" /></svg>);
 
-export function GeoMarsLogo({ size = 30 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 64 64" aria-hidden="true">
-      <defs>
-        <radialGradient id="gmLogoG" cx="36%" cy="32%" r="72%">
-          <stop offset="0" stopColor="#ffbf8f" />
-          <stop offset=".5" stopColor="#e0692f" />
-          <stop offset="1" stopColor="#4a160a" />
-        </radialGradient>
-        <linearGradient id="gmLogoRing" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#ffd7b5" stopOpacity=".95" />
-          <stop offset="1" stopColor="#ff8a3d" stopOpacity=".35" />
-        </linearGradient>
-      </defs>
-      <circle cx="32" cy="32" r="20" fill="url(#gmLogoG)" />
-      <path d="M22 37c4-1 6-5 10-5s7 3 11 2" stroke="#7a2a12" strokeOpacity=".55" strokeWidth="2" fill="none" strokeLinecap="round" />
-      <path d="M32 16.5 41.5 41 32 35.6 22.5 41Z" fill="#fff5ec" />
-      <ellipse cx="32" cy="32" rx="29.5" ry="9.5" fill="none" stroke="url(#gmLogoRing)" strokeWidth="1.8" transform="rotate(-24 32 32)" />
-    </svg>
-  );
+/**
+ * Approved GeoMars logo (V1.2). Source: public/brand/geomars-logo.png (user-supplied, kept intact).
+ * Integrated variants derived from it with the flat navy backdrop and loose stars removed — the
+ * artwork itself (globe, star, ring, wordmark) keeps its original pixels and proportions:
+ *   geomars-logo-transparent.png  full lockup (mark + wordmark) — intro
+ *   geomars-mark.png              mark only, square — header and favicon
+ */
+const BRAND = `${import.meta.env.BASE_URL}brand/`;
+export const LOGO_SRC = `${BRAND}geomars-logo-transparent.png`;
+export const MARK_SRC = `${BRAND}geomars-mark.png`;
+
+export function GeoMarsLogo({ size = 30, className = '' }: { size?: number; className?: string }) {
+  return <img src={MARK_SRC} width={size} height={size} alt="" aria-hidden="true" draggable={false} className={`gm-logo ${className}`} />;
 }
 
 export const IconMountain = ({ size, ...p }: P) => (<svg {...base(size)} {...p}><path d="m3 19 6.5-11 4 6.5 2.5-3.5L21 19H3Z" /></svg>);
 export const IconSlope = ({ size, ...p }: P) => (<svg {...base(size)} {...p}><path d="M3 19h18L3 8v11Z" /><path d="M8 19a5 5 0 0 0-1.6-3.7" /></svg>);
 export const IconBolt = ({ size, ...p }: P) => (<svg {...base(size)} {...p}><path d="M13 2.5 5 13.5h6l-1 8 8-11h-6l1-8Z" /></svg>);
 export const IconBack = ({ size, ...p }: P) => (<svg {...base(size)} {...p}><path d="m15 6-6 6 6 6" /></svg>);
+/** Pressurised rover: cabin, mast, three wheels. */
+export const IconRover = ({ size, ...p }: P) => (<svg {...base(size)} {...p}><path d="M4.5 13.5V10a2 2 0 0 1 2-2h7.2a2 2 0 0 1 1.7.9l2.6 4.6" /><path d="M3.5 13.5h17" /><path d="M8 8V4.8h2.6" /><circle cx="6.5" cy="17" r="2" /><circle cx="12" cy="17" r="2" /><circle cx="17.5" cy="17" r="2" /></svg>);
+/** Astronaut walking: helmet, life-support pack, mid-stride. */
+export const IconWalk = ({ size, ...p }: P) => (<svg {...base(size)} {...p}><circle cx="13.2" cy="4.6" r="2.3" /><path d="M12.6 8 11 13.6l2.8 3.4V21" /><path d="M11 13.6 8.7 17.4 6 19.6" /><path d="M12.4 9.4 15.8 11.6M12.2 9.4 9 11" /><path d="M10.6 7.6 9.4 12" strokeWidth={2.6} /></svg>);
 export const IconSidebar = ({ size, ...p }: P) => (<svg {...base(size)} {...p}><rect x="3.5" y="4.5" width="17" height="15" rx="3.5" /><path d="M9.5 4.5v15" /></svg>);

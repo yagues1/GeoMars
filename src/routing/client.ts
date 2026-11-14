@@ -1,6 +1,6 @@
 import { DATA_BASE } from '../config/constants';
 import type { RouteResult } from './astar';
-import type { VehicleModel } from './vehicle';
+import type { MobilityProfile } from './vehicle';
 
 export interface TerrainSample {
   covered: boolean;
@@ -41,11 +41,12 @@ class RoutingClient {
     this.worker.postMessage({ type: 'init', base });
   }
 
-  route(from: [number, number], to: [number, number], vehicle?: VehicleModel): Promise<RouteResult> {
+  /** Route with an explicit mobility profile (the profile object is sent to the worker as-is). */
+  route(from: [number, number], to: [number, number], profile: MobilityProfile): Promise<RouteResult> {
     const id = ++this.seq;
     return new Promise((res) => {
       this.pending.set(id, res as Pending);
-      this.worker.postMessage({ type: 'route', id, from, to, vehicle });
+      this.worker.postMessage({ type: 'route', id, from, to, profile });
     });
   }
 

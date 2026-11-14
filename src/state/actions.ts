@@ -1,8 +1,27 @@
-import maplibregl from 'maplibre-gl';
 import { useStore } from './store';
 import { routing } from '../routing/client';
 import { getMap } from '../map/mapRef';
-import { easeInOutCubic } from '../navigation/controller';
+import { easeInOutCubic } from '../map/easing';
+import { profileFor, type TravelMode } from '../routing/vehicle';
+
+/** Bounding box [[w, s], [e, n]] of a coordinate list. */
+export function boundsOf(coords: [number, number][]): [[number, number], [number, number]] {
+  let w = Infinity, s = Infinity, e = -Infinity, n = -Infinity;
+  for (const [x, y] of coords) {
+    if (x < w) w = x;
+    if (x > e) e = x;
+    if (y < s) s = y;
+    if (y > n) n = y;
+  }
+  return [[w, s], [e, n]];
+}
+
+/**
+ * Monotonic token of the latest route request. A result is applied only if it belongs to the
+ * newest request AND the inputs (origin, destination, travel mode) are still the same — so a
+ * Rover result can never overwrite a newer Walking result, or vice versa.
+ */
+let routeSeq = 0;
 
 /** Map padding that keeps a fitted route clear of the floating panels. */
 export function routePadding() {
@@ -13,20 +32,23 @@ export function routePadding() {
 export async function calculateRoute() {
   const s = useStore.getState();
   if (!s.origin || !s.destination) return;
+  const req = ++routeSeq;
+  const mode = s.travelMode;
+  const stale = () => {
+    const now = useStore.getState();
+    return req !== routeSeq || now.origin !== s.origin || now.destination !== s.destination || now.travelMode !== mode;
+  };
   useStore.setState({ routeStatus: 'computing', routeError: null, route: null, inspect: null });
   try {
     await routing().ready;
-    const res = await routing().route(s.origin, s.destination);
-    // ignore stale results if the user changed the points meanwhile
-    const now = useStore.getState();
-    if (now.origin !== s.origin || now.destination !== s.destination) return;
+    const res = await routing().route(s.origin, s.destination, profileFor(mode));
+    // ignore stale results: newer request, changed points or changed travel mode
+    if (stale()) return;
     if (res.ok) {
       useStore.setState({ route: res, routeStatus: 'done', navStatus: 'idle', navSimTime: 0 });
       const map = getMap();
       if (map) {
-        const b = new maplibregl.LngLatBounds();
-        res.coordinates.forEach((c) => b.extend(c));
-        map.fitBounds(b, {
+        map.fitBounds(boundsOf(res.coordinates), {
           padding: routePadding(),
           maxZoom: 15,
           duration: 1500,
@@ -38,11 +60,36 @@ export async function calculateRoute() {
       useStore.setState({ routeError: res, routeStatus: 'failed' });
     }
   } catch (e) {
+    if (stale()) return;
     useStore.setState({
       routeStatus: 'failed',
       routeError: { ok: false, reason: 'no_data', message: `Routing engine error: ${String(e)}`, computeMs: 0 },
     });
   }
+}
+
+/**
+ * Change the travel mode. Origin/destination are kept; any result computed under the previous
+ * mobility profile is invalidated (never displayed as if it belonged to the new mode). An active
+ * navigation is NOT switched mid-journey: it is stopped and the app returns to planning, where the
+ * route is recomputed with the new profile and navigation must be restarted.
+ */
+export function setTravelMode(mode: TravelMode) {
+  const s = useStore.getState();
+  if (s.travelMode === mode) return;
+  const hadResult = s.routeStatus !== 'idle';
+  useStore.setState({
+    travelMode: mode,
+    route: null,
+    routeError: null,
+    routeStatus: 'idle',
+    navStatus: 'idle',
+    navSimTime: 0,
+    arrivalOpen: false,
+    appMode: 'planning',
+  });
+  routeSeq++; // any in-flight request now belongs to the old profile
+  if (hadResult && s.origin && s.destination) void calculateRoute();
 }
 
 export function startNavigation() {

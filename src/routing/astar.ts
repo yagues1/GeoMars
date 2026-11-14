@@ -2,20 +2,21 @@
  * Terrain-aware route optimisation on the CTX-DEM-derived routing grid.
  *
  * Graph: one node per 40 m grid cell, 8-connected. A cell is a node only if it has observed
- * elevation + slope (no data → never a node) and its slope is ≤ the vehicle limit (hard
- * constraint → edge removed, not penalised). Diagonal moves additionally require both
+ * elevation + slope (no data → never a node; universal for every travel mode) and its slope is ≤
+ * the active mobility profile's limit (mode-specific hard constraint → edge removed, not penalised). Diagonal moves additionally require both
  * orthogonal neighbours to be traversable (no corner cutting through excluded cells).
  *
- * Cost (non-negative, "equivalent seconds"):
+ * Cost (non-negative, "equivalent seconds"), weights taken from the MobilityProfile:
  *   cost = t + w_E·E + t·w_c·caution(s) + t·w_u·[low-confidence]
- * where t = L3D / (v_nom·speedFactor(s)), E = estimated traction energy.
+ * where t = L3D / (v_nom·speedFactor(s, grade)), E = estimated traction energy (0 when walking).
  *
  * Algorithm: A* with heuristic h = straight-line planar distance / v_nom using the *smallest*
- * east-west cell spacing in the grid. Every edge costs ≥ its horizontal length / v_nom, so h is
+ * east-west cell spacing in the grid. speedFactor ≤ 1 for every profile, so every edge costs ≥ its
+ * horizontal length / v_nom of the active profile, and h is
  * admissible and consistent → A* returns the same optimum as Dijkstra (verified in tests).
  * Ties are broken deterministically by node index.
  */
-import { COST_WEIGHTS, segmentEnergyWh, speedFactor, type VehicleModel } from './vehicle';
+import { segmentEnergyWh, speedFactor, type MobilityProfile, type TravelMode } from './vehicle';
 import { densify, filletCorners, relax, segmentClear, stringPull, traversable, type CellPt } from './geometry';
 
 export interface TerrainGrid {
@@ -54,6 +55,10 @@ export type RouteFailureReason =
 
 export interface RouteSuccess {
   ok: true;
+  /** travel mode whose mobility profile produced this route */
+  mode: TravelMode;
+  /** nominal speed of that profile (m/s) — effective speed is distance / timeS */
+  nominalSpeedMs: number;
   coordinates: [number, number][];
   elevations: number[];
   cumDist: number[];
@@ -61,7 +66,8 @@ export interface RouteSuccess {
   segSlope: number[];
   distanceM: number;
   timeS: number;
-  energyKWh: number;
+  /** estimated traction energy; null for modes without a motor (walking) */
+  energyKWh: number | null;
   maxSlopeDeg: number;
   meanSlopeDeg: number;
   ascentM: number;
@@ -77,6 +83,7 @@ export interface RouteSuccess {
 
 export interface RouteFailure {
   ok: false;
+  mode?: TravelMode;
   reason: RouteFailureReason;
   message: string;
   computeMs: number;
@@ -200,7 +207,7 @@ class Heap {
 
 interface EdgeCtx {
   g: PreparedGrid;
-  v: VehicleModel;
+  v: MobilityProfile;
 }
 
 /** Cost and physical terms of moving between adjacent cells a → b. */
@@ -213,11 +220,13 @@ function edgeCost(ctx: EdgeCtx, a: number, b: number, dc: number, dr: number) {
   const dz = g.elev[b] - g.elev[a];
   const l3 = Math.hypot(dh, dz);
   const s = Math.max(g.slope[a], g.slope[b]) * g.slopeScale;
-  const t = l3 / (v.nominalSpeedMs * speedFactor(s, v));
-  const e = segmentEnergyWh(l3, Math.atan2(dz, dh), v, g.gravity);
-  let cost = t + e * COST_WEIGHTS.energyPerWh;
-  if (s > v.cautionSlopeDeg) cost += t * COST_WEIGHTS.caution * ((s - v.cautionSlopeDeg) / (v.maxSlopeDeg - v.cautionSlopeDeg));
-  if (g.confidence[a] === 1 || g.confidence[b] === 1) cost += t * COST_WEIGHTS.lowConfidence;
+  const grade = Math.atan2(dz, dh);
+  const t = l3 / (v.nominalSpeedMs * speedFactor(s, v, grade));
+  const w = v.weights;
+  let cost = t;
+  if (w.energyPerWh > 0) cost += segmentEnergyWh(l3, grade, v, g.gravity) * w.energyPerWh;
+  if (s > v.cautionSlopeDeg) cost += t * w.caution * ((s - v.cautionSlopeDeg) / (v.maxSlopeDeg - v.cautionSlopeDeg));
+  if (g.confidence[a] === 1 || g.confidence[b] === 1) cost += t * w.lowConfidence;
   return cost;
 }
 
@@ -229,7 +238,7 @@ export interface SearchOptions {
 /** Core search. Returns the list of cell indices from start to goal, or null. */
 export function searchCells(
   g: PreparedGrid,
-  v: VehicleModel,
+  v: MobilityProfile,
   start: number,
   goal: number,
   opts: SearchOptions = {},
@@ -338,7 +347,7 @@ function snapCell(g: PreparedGrid, c: number, r: number, maxQ: number, radius: n
 }
 
 /** Evaluate distance/time/energy on the FINAL displayed geometry, densified at ≤ one cell spacing. */
-function measure(g: PreparedGrid, v: VehicleModel, pts: CellPt[]) {
+function measure(g: PreparedGrid, v: MobilityProfile, pts: CellPt[]) {
   const coords: [number, number][] = [];
   const elev: number[] = [];
   const cellIdx: number[] = [];
@@ -382,8 +391,9 @@ function measure(g: PreparedGrid, v: VehicleModel, pts: CellPt[]) {
     const l3 = Math.hypot(dh, dz);
     const s = Math.max(g.slope[cellIdx[k]], g.slope[cellIdx[k - 1]]) * g.slopeScale;
     segSlope.push(s);
-    const t = l3 / (v.nominalSpeedMs * speedFactor(s, v));
-    energy += segmentEnergyWh(l3, Math.atan2(dz, dh), v, g.gravity);
+    const grade = Math.atan2(dz, dh);
+    const t = l3 / (v.nominalSpeedMs * speedFactor(s, v, grade));
+    energy += segmentEnergyWh(l3, grade, v, g.gravity);
     if (dz > 0) ascent += dz;
     else descent -= dz;
     maxSlope = Math.max(maxSlope, s);
@@ -402,7 +412,7 @@ function measure(g: PreparedGrid, v: VehicleModel, pts: CellPt[]) {
     segSlope,
     distanceM: D,
     timeS: cumTime[cumTime.length - 1],
-    energyKWh: energy / 1000,
+    energyKWh: v.traction ? energy / 1000 : null,
     maxSlopeDeg: maxSlope,
     meanSlopeDeg: D > 0 ? slopeSum / D : 0,
     ascentM: ascent,
@@ -416,13 +426,14 @@ const now = () => (typeof performance !== 'undefined' ? performance.now() : Date
 
 export function computeRoute(
   g: PreparedGrid,
-  v: VehicleModel,
+  v: MobilityProfile,
   from: [number, number],
   to: [number, number],
   opts: { simplify?: boolean; smooth?: boolean; heuristic?: boolean } = {},
 ): RouteResult {
   const t0 = now();
-  const fail = (reason: RouteFailureReason, message: string): RouteFailure => ({ ok: false, reason, message, computeMs: now() - t0 });
+  const fail = (reason: RouteFailureReason, message: string): RouteFailure => ({ ok: false, mode: v.mode, reason, message, computeMs: now() - t0 });
+  const limitLabel = v.mode === 'walking' ? 'walking' : 'vehicle';
   const maxQ = Math.floor(v.maxSlopeDeg / g.slopeScale + 1e-9);
   const ends: { index: number; distM: number }[] = [];
   for (const [label, p] of [['Origin', from], ['Destination', to]] as const) {
@@ -442,7 +453,7 @@ export function computeRoute(
       if (snapped.index < 0) {
         return fail(
           'too_steep_endpoint',
-          `${label} lies on terrain steeper than the ${v.maxSlopeDeg}° vehicle limit (${(g.slope[i] * g.slopeScale).toFixed(1)}°) with no safe ground within 120 m.`,
+          `${label} lies on terrain steeper than the ${v.maxSlopeDeg}° ${limitLabel} limit (${(g.slope[i] * g.slopeScale).toFixed(1)}°) with no safe ground within 120 m.`,
         );
       }
       ends.push(snapped);
@@ -459,7 +470,7 @@ export function computeRoute(
     return fail(
       slopeOnly ? 'blocked_by_slope' : 'blocked_by_coverage',
       slopeOnly
-        ? `No route keeps every slope ≤ ${v.maxSlopeDeg}°. The two points are separated by terrain steeper than the vehicle limit (e.g. crater walls or scarps).`
+        ? `No ${v.label.toLowerCase()} route keeps every slope ≤ ${v.maxSlopeDeg}°. The two points are separated by terrain steeper than the ${limitLabel} limit (e.g. crater walls or scarps).`
         : 'No route exists through observed terrain: the points are separated by gaps in the elevation model, and GeoMars never routes over unobserved ground.',
     );
   }
@@ -473,6 +484,8 @@ export function computeRoute(
   );
   return {
     ok: true,
+    mode: v.mode,
+    nominalSpeedMs: v.nominalSpeedMs,
     ...m,
     straightLineM: straight,
     expanded: res.expanded,

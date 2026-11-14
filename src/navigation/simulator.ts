@@ -1,8 +1,27 @@
 import type { RouteSuccess } from '../routing/astar';
 import { bearing, type LngLat } from '../geo/mars';
 
-/** Simulation clock multiplier: 1 s of wall time = 60 s of estimated vehicle time. */
+/** Default simulation clock multiplier: 1 s of wall time = 60 s of estimated travel time. */
 export const TIME_WARP = 60;
+
+/** Base playback multiplier per travel mode (walking is slower, so it plays back faster). */
+const BASE_WARP: Record<RouteSuccess['mode'], number> = { rover: 60, walking: 120 };
+/** Longest comfortable demo playback (wall seconds) before the multiplier is raised. */
+const MAX_PLAYBACK_S = 90;
+const MAX_WARP = 1200;
+
+/**
+ * Playback multiplier for a route. Simulation speed is NOT travel speed: the estimated mission
+ * time (route.timeS) is always shown unchanged; only the wall-clock playback is compressed so long
+ * walking traverses stay practical to watch. Rounded to a "nice" value for display.
+ */
+export function playbackWarp(route: Pick<RouteSuccess, 'mode' | 'timeS'>): number {
+  const base = BASE_WARP[route.mode] ?? TIME_WARP;
+  const needed = route.timeS / MAX_PLAYBACK_S;
+  if (needed <= base) return base;
+  const nice = [180, 240, 300, 360, 480, 600, 900, MAX_WARP].find((w) => w >= needed) ?? MAX_WARP;
+  return nice;
+}
 
 export interface NavPosition {
   lngLat: LngLat;

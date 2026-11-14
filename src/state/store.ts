@@ -3,6 +3,7 @@ import type { LngLat } from '../geo/mars';
 import type { RouteFailure, RouteSuccess } from '../routing/astar';
 import type { Poi } from '../data/loaders';
 import type { TerrainSample } from '../routing/client';
+import type { TravelMode } from '../routing/vehicle';
 
 export type AppMode = 'planning' | 'navigation';
 export type Tool = 'explore' | 'route';
@@ -33,6 +34,8 @@ export interface InspectInfo {
 
 interface State {
   phase: 'intro' | 'ready';
+  /** user asked to skip the intro (honoured as soon as the map can show Jezero) */
+  introSkipped: boolean;
   dataReady: boolean;
   routingReady: boolean;
   appMode: AppMode;
@@ -46,6 +49,8 @@ interface State {
   destination: LngLat | null;
   originLabel: string | null;
   destinationLabel: string | null;
+  /** Selected travel mode — part of the routing configuration (mobility profile), not just a label. */
+  travelMode: TravelMode;
   routeStatus: 'idle' | 'computing' | 'done' | 'failed';
   route: RouteSuccess | null;
   routeError: RouteFailure | null;
@@ -67,6 +72,7 @@ interface State {
 
 export const useStore = create<State>((set, get) => ({
   phase: 'intro',
+  introSkipped: false,
   dataReady: false,
   routingReady: false,
   appMode: 'planning',
@@ -91,6 +97,7 @@ export const useStore = create<State>((set, get) => ({
   destination: null,
   originLabel: null,
   destinationLabel: null,
+  travelMode: 'rover',
   routeStatus: 'idle',
   route: null,
   routeError: null,
