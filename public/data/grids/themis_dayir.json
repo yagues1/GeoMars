@@ -1,0 +1,12 @@
+{
+ "width": 600,
+ "height": 600,
+ "lon0": 76.7959713539945,
+ "lon1": 77.80227010133227,
+ "lat0": 18.701056504123198,
+ "lat1": 17.69794629421907,
+ "nodata": 0,
+ "units": "8-bit DN (stretched, uncalibrated)",
+ "display_p1": 41.0,
+ "display_p99": 208.0
+}

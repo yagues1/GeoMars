@@ -1,0 +1,628 @@
+{
+ "generated_by": "scripts/build_pois.py",
+ "coordinate_frame": "Mars planetocentric, east-positive, degrees",
+ "pois": [
+  {
+   "id": "sample-rochette",
+   "name": "Rochette",
+   "category": "sample",
+   "lon": 77.44436574,
+   "lat": 18.4307394,
+   "elev_geoid_m": -2574.524,
+   "description": "Rock core sample site. NASA lists 'Montdenier' (#2, sol 194, 2021-09-06), 'Montagnac' (#3, sol 196, 2021-09-08) from the 'Rochette' feature; rock type: Igneous. First rock cores of the mission, from an igneous rock on the crater floor (Máaz formation, Artuby ridge).",
+   "samples": [
+    {
+     "no": 2,
+     "name": "Montdenier",
+     "sol": 194,
+     "date": "2021-09-06",
+     "type": "Rock core",
+     "rock": "Igneous"
+    },
+    {
+     "no": 3,
+     "name": "Montagnac",
+     "sol": 196,
+     "date": "2021-09-08",
+     "type": "Rock core",
+     "rock": "Igneous"
+    }
+   ],
+   "status": "observed",
+   "location_method": "Perseverance position on sol 180 (last MMGIS waypoint at or before sol 196); rover-scale approximate.",
+   "sources": [
+    "https://science.nasa.gov/mission/mars-2020-perseverance/mars-rock-samples",
+    "https://mars.nasa.gov/mmgis-maps/M20/Layers/json/M20_waypoints.json"
+   ]
+  },
+  {
+   "id": "sample-brac",
+   "name": "Brac",
+   "category": "sample",
+   "lon": 77.44301922,
+   "lat": 18.43396406,
+   "elev_geoid_m": -2569.154,
+   "description": "Rock core sample site. NASA lists 'Salette' (#4, sol 262, 2021-11-15), 'Coulettes' (#5, sol 271, 2021-11-24) from the 'Brac' feature; rock type: Igneous. Igneous rock in the Séítah region of the crater floor, reported by the mission as olivine-rich.",
+   "samples": [
+    {
+     "no": 4,
+     "name": "Salette",
+     "sol": 262,
+     "date": "2021-11-15",
+     "type": "Rock core",
+     "rock": "Igneous"
+    },
+    {
+     "no": 5,
+     "name": "Coulettes",
+     "sol": 271,
+     "date": "2021-11-24",
+     "type": "Rock core",
+     "rock": "Igneous"
+    }
+   ],
+   "status": "observed",
+   "location_method": "Perseverance position on sol 248 (last MMGIS waypoint at or before sol 271); rover-scale approximate.",
+   "sources": [
+    "https://science.nasa.gov/mission/mars-2020-perseverance/mars-rock-samples",
+    "https://mars.nasa.gov/mmgis-maps/M20/Layers/json/M20_waypoints.json"
+   ]
+  },
+  {
+   "id": "sample-issole",
+   "name": "Issole",
+   "category": "sample",
+   "lon": 77.44131402,
+   "lat": 18.43260907,
+   "elev_geoid_m": -2574.224609,
+   "description": "Rock core sample site. NASA lists 'Robine' (#6, sol 298, 2021-12-22), 'Malay' (#7, sol 337, 2022-01-31) from the 'Issole' feature; rock type: Igneous.",
+   "samples": [
+    {
+     "no": 6,
+     "name": "Robine",
+     "sol": 298,
+     "date": "2021-12-22",
+     "type": "Rock core",
+     "rock": "Igneous"
+    },
+    {
+     "no": 7,
+     "name": "Malay",
+     "sol": 337,
+     "date": "2022-01-31",
+     "type": "Rock core",
+     "rock": "Igneous"
+    }
+   ],
+   "status": "observed",
+   "location_method": "Perseverance position on sol 335 (last MMGIS waypoint at or before sol 337); rover-scale approximate.",
+   "sources": [
+    "https://science.nasa.gov/mission/mars-2020-perseverance/mars-rock-samples",
+    "https://mars.nasa.gov/mmgis-maps/M20/Layers/json/M20_waypoints.json"
+   ]
+  },
+  {
+   "id": "sample-sid",
+   "name": "Sid",
+   "category": "sample",
+   "lon": 77.45243445,
+   "lat": 18.44390163,
+   "elev_geoid_m": -2568.722168,
+   "description": "Rock core sample site. NASA lists 'Ha'ahóni' (#8, sol 371, 2022-03-07), 'Atsá' (#9, sol 377, 2022-03-13) from the 'Sid' feature; rock type: Igneous.",
+   "samples": [
+    {
+     "no": 8,
+     "name": "Ha'ahóni",
+     "sol": 371,
+     "date": "2022-03-07",
+     "type": "Rock core",
+     "rock": "Igneous"
+    },
+    {
+     "no": 9,
+     "name": "Atsá",
+     "sol": 377,
+     "date": "2022-03-13",
+     "type": "Rock core",
+     "rock": "Igneous"
+    }
+   ],
+   "status": "observed",
+   "location_method": "Perseverance position on sol 362 (last MMGIS waypoint at or before sol 377); rover-scale approximate.",
+   "sources": [
+    "https://science.nasa.gov/mission/mars-2020-perseverance/mars-rock-samples",
+    "https://mars.nasa.gov/mmgis-maps/M20/Layers/json/M20_waypoints.json"
+   ]
+  },
+  {
+   "id": "sample-skinner-ridge",
+   "name": "Skinner Ridge",
+   "category": "sample",
+   "lon": 77.40616768,
+   "lat": 18.45889532,
+   "elev_geoid_m": -2520.852539,
+   "description": "Rock core sample site. NASA lists 'Swift Run' (#10, sol 490, 2022-07-07), 'Skyland' (#11, sol 495, 2022-07-12) from the 'Skinner Ridge' feature; rock type: Sedimentary. First sedimentary cores, collected at the front of the western fan (delta).",
+   "samples": [
+    {
+     "no": 10,
+     "name": "Swift Run",
+     "sol": 490,
+     "date": "2022-07-07",
+     "type": "Rock core",
+     "rock": "Sedimentary"
+    },
+    {
+     "no": 11,
+     "name": "Skyland",
+     "sol": 495,
+     "date": "2022-07-12",
+     "type": "Rock core",
+     "rock": "Sedimentary"
+    }
+   ],
+   "status": "observed",
+   "location_method": "Perseverance position on sol 477 (last MMGIS waypoint at or before sol 495); rover-scale approximate.",
+   "sources": [
+    "https://science.nasa.gov/mission/mars-2020-perseverance/mars-rock-samples",
+    "https://mars.nasa.gov/mmgis-maps/M20/Layers/json/M20_waypoints.json"
+   ]
+  },
+  {
+   "id": "sample-wildcat-ridge",
+   "name": "Wildcat Ridge",
+   "category": "sample",
+   "lon": 77.40592495,
+   "lat": 18.45864728,
+   "elev_geoid_m": -2523.167969,
+   "description": "Rock core sample site. NASA lists 'Hazeltop' (#12, sol 509, 2022-07-27), 'Bearwallow' (#13, sol 516, 2022-08-03) from the 'Wildcat Ridge' feature; rock type: Sedimentary. Fine-grained sedimentary rock at the delta front; NASA reported detections of organic matter by the SHERLOC instrument in this rock (2022).",
+   "samples": [
+    {
+     "no": 12,
+     "name": "Hazeltop",
+     "sol": 509,
+     "date": "2022-07-27",
+     "type": "Rock core",
+     "rock": "Sedimentary"
+    },
+    {
+     "no": 13,
+     "name": "Bearwallow",
+     "sol": 516,
+     "date": "2022-08-03",
+     "type": "Rock core",
+     "rock": "Sedimentary"
+    }
+   ],
+   "status": "observed",
+   "location_method": "Perseverance position on sol 502 (last MMGIS waypoint at or before sol 516); rover-scale approximate.",
+   "sources": [
+    "https://science.nasa.gov/mission/mars-2020-perseverance/mars-rock-samples",
+    "https://mars.nasa.gov/mmgis-maps/M20/Layers/json/M20_waypoints.json"
+   ]
+  },
+  {
+   "id": "sample-amalik",
+   "name": "Amalik",
+   "category": "sample",
+   "lon": 77.39915371,
+   "lat": 18.45364399,
+   "elev_geoid_m": -2517.294678,
+   "description": "Rock core sample site. NASA lists 'Shuyak' (#14, sol 575, 2022-10-02), 'Mageik' (#15, sol 619, 2022-11-16) from the 'Amalik' feature; rock type: Sedimentary.",
+   "samples": [
+    {
+     "no": 14,
+     "name": "Shuyak",
+     "sol": 575,
+     "date": "2022-10-02",
+     "type": "Rock core",
+     "rock": "Sedimentary"
+    },
+    {
+     "no": 15,
+     "name": "Mageik",
+     "sol": 619,
+     "date": "2022-11-16",
+     "type": "Rock core",
+     "rock": "Sedimentary"
+    }
+   ],
+   "status": "observed",
+   "location_method": "Perseverance position on sol 609 (last MMGIS waypoint at or before sol 619); rover-scale approximate.",
+   "sources": [
+    "https://science.nasa.gov/mission/mars-2020-perseverance/mars-rock-samples",
+    "https://mars.nasa.gov/mmgis-maps/M20/Layers/json/M20_waypoints.json"
+   ]
+  },
+  {
+   "id": "sample-hidden-harbor",
+   "name": "Hidden Harbor",
+   "category": "sample",
+   "lon": 77.40143694,
+   "lat": 18.45162509,
+   "elev_geoid_m": -2523.83252,
+   "description": "Rock core sample site. NASA lists 'Kukaklek' (#16, sol 631, 2022-11-29) from the 'Hidden Harbor' feature; rock type: Sedimentary.",
+   "samples": [
+    {
+     "no": 16,
+     "name": "Kukaklek",
+     "sol": 631,
+     "date": "2022-11-29",
+     "type": "Rock core",
+     "rock": "Sedimentary"
+    }
+   ],
+   "status": "observed",
+   "location_method": "Perseverance position on sol 629 (last MMGIS waypoint at or before sol 631); rover-scale approximate.",
+   "sources": [
+    "https://science.nasa.gov/mission/mars-2020-perseverance/mars-rock-samples",
+    "https://mars.nasa.gov/mmgis-maps/M20/Layers/json/M20_waypoints.json"
+   ]
+  },
+  {
+   "id": "sample-observation-mountain",
+   "name": "Observation Mountain",
+   "category": "sample",
+   "lon": 77.40125715,
+   "lat": 18.45133122,
+   "elev_geoid_m": -2525.284668,
+   "description": "Regolith sample site. NASA lists 'Atmo Mountain' (#17, sol 634, 2022-12-02), 'Crosswind Lake' (#18, sol 639, 2022-12-07) from the 'Observation Mountain' feature; rock type: Likely mixed sedimentary and igneous grains. Regolith (loose surface material) samples.",
+   "samples": [
+    {
+     "no": 17,
+     "name": "Atmo Mountain",
+     "sol": 634,
+     "date": "2022-12-02",
+     "type": "Regolith",
+     "rock": "Likely mixed sedimentary and igneous grains"
+    },
+    {
+     "no": 18,
+     "name": "Crosswind Lake",
+     "sol": 639,
+     "date": "2022-12-07",
+     "type": "Regolith",
+     "rock": "Likely mixed sedimentary and igneous grains"
+    }
+   ],
+   "status": "observed",
+   "location_method": "Perseverance position on sol 632 (last MMGIS waypoint at or before sol 639); rover-scale approximate.",
+   "sources": [
+    "https://science.nasa.gov/mission/mars-2020-perseverance/mars-rock-samples",
+    "https://mars.nasa.gov/mmgis-maps/M20/Layers/json/M20_waypoints.json"
+   ]
+  },
+  {
+   "id": "sample-berea",
+   "name": "Berea",
+   "category": "sample",
+   "lon": 77.38398783,
+   "lat": 18.4702116,
+   "elev_geoid_m": -2449.079102,
+   "description": "Rock core sample site. NASA lists 'Melyn' (#19, sol 749, 2023-03-30) from the 'Berea' feature; rock type: Sedimentary.",
+   "samples": [
+    {
+     "no": 19,
+     "name": "Melyn",
+     "sol": 749,
+     "date": "2023-03-30",
+     "type": "Rock core",
+     "rock": "Sedimentary"
+    }
+   ],
+   "status": "observed",
+   "location_method": "Perseverance position on sol 736 (last MMGIS waypoint at or before sol 749); rover-scale approximate.",
+   "sources": [
+    "https://science.nasa.gov/mission/mars-2020-perseverance/mars-rock-samples",
+    "https://mars.nasa.gov/mmgis-maps/M20/Layers/json/M20_waypoints.json"
+   ]
+  },
+  {
+   "id": "sample-emerald-lake",
+   "name": "Emerald Lake",
+   "category": "sample",
+   "lon": 77.36819431,
+   "lat": 18.48298797,
+   "elev_geoid_m": -2420.788818,
+   "description": "Rock core sample site. NASA lists 'Otis Peak' (#20, sol 832, 2023-06-23) from the 'Emerald Lake' feature; rock type: Sedimentary.",
+   "samples": [
+    {
+     "no": 20,
+     "name": "Otis Peak",
+     "sol": 832,
+     "date": "2023-06-23",
+     "type": "Rock core",
+     "rock": "Sedimentary"
+    }
+   ],
+   "status": "observed",
+   "location_method": "Perseverance position on sol 821 (last MMGIS waypoint at or before sol 832); rover-scale approximate.",
+   "sources": [
+    "https://science.nasa.gov/mission/mars-2020-perseverance/mars-rock-samples",
+    "https://mars.nasa.gov/mmgis-maps/M20/Layers/json/M20_waypoints.json"
+   ]
+  },
+  {
+   "id": "sample-dream-lake",
+   "name": "Dream Lake",
+   "category": "sample",
+   "lon": 77.35069424,
+   "lat": 18.48344268,
+   "elev_geoid_m": -2423.311523,
+   "description": "Rock core sample site. NASA lists 'Pilot Mountain' (#21, sol 913, 2023-09-15) from the 'Dream Lake' feature; rock type: Sedimentary.",
+   "samples": [
+    {
+     "no": 21,
+     "name": "Pilot Mountain",
+     "sol": 913,
+     "date": "2023-09-15",
+     "type": "Rock core",
+     "rock": "Sedimentary"
+    }
+   ],
+   "status": "observed",
+   "location_method": "Perseverance position on sol 911 (last MMGIS waypoint at or before sol 913); rover-scale approximate.",
+   "sources": [
+    "https://science.nasa.gov/mission/mars-2020-perseverance/mars-rock-samples",
+    "https://mars.nasa.gov/mmgis-maps/M20/Layers/json/M20_waypoints.json"
+   ]
+  },
+  {
+   "id": "sample-hans-amundsen-memorial-workspace",
+   "name": "Hans Amundsen Memorial Workspace",
+   "category": "sample",
+   "lon": 77.35069424,
+   "lat": 18.48344268,
+   "elev_geoid_m": -2423.311523,
+   "description": "Rock core sample site. NASA lists 'Pelican Point' (#22, sol 923, 2023-09-25) from the 'Hans Amundsen Memorial Workspace' feature; rock type: Sedimentary.",
+   "samples": [
+    {
+     "no": 22,
+     "name": "Pelican Point",
+     "sol": 923,
+     "date": "2023-09-25",
+     "type": "Rock core",
+     "rock": "Sedimentary"
+    }
+   ],
+   "status": "observed",
+   "location_method": "Perseverance position on sol 911 (last MMGIS waypoint at or before sol 923); rover-scale approximate.",
+   "sources": [
+    "https://science.nasa.gov/mission/mars-2020-perseverance/mars-rock-samples",
+    "https://mars.nasa.gov/mmgis-maps/M20/Layers/json/M20_waypoints.json"
+   ]
+  },
+  {
+   "id": "sample-turquoise-bay",
+   "name": "Turquoise Bay",
+   "category": "sample",
+   "lon": 77.34704342,
+   "lat": 18.48871464,
+   "elev_geoid_m": -2407.662598,
+   "description": "Rock core sample site. NASA lists 'Lefroy Bay' (#23, sol 949, 2023-10-21) from the 'Turquoise Bay' feature; rock type: Sedimentary.",
+   "samples": [
+    {
+     "no": 23,
+     "name": "Lefroy Bay",
+     "sol": 949,
+     "date": "2023-10-21",
+     "type": "Rock core",
+     "rock": "Sedimentary"
+    }
+   ],
+   "status": "observed",
+   "location_method": "Perseverance position on sol 933 (last MMGIS waypoint at or before sol 949); rover-scale approximate.",
+   "sources": [
+    "https://science.nasa.gov/mission/mars-2020-perseverance/mars-rock-samples",
+    "https://mars.nasa.gov/mmgis-maps/M20/Layers/json/M20_waypoints.json"
+   ]
+  },
+  {
+   "id": "sample-bunsen-peak",
+   "name": "Bunsen Peak",
+   "category": "sample",
+   "lon": 77.32720278,
+   "lat": 18.49183272,
+   "elev_geoid_m": -2383.031982,
+   "description": "Rock core sample site. NASA lists 'Comet Geyser' (#24, sol 1088, 2024-03-12) from the 'Bunsen Peak' feature; rock type: Silica-cemented carbonate. Sample listed by NASA as a silica-cemented carbonate.",
+   "samples": [
+    {
+     "no": 24,
+     "name": "Comet Geyser",
+     "sol": 1088,
+     "date": "2024-03-12",
+     "type": "Rock core",
+     "rock": "Silica-cemented carbonate"
+    }
+   ],
+   "status": "observed",
+   "location_method": "Perseverance position on sol 1084 (last MMGIS waypoint at or before sol 1088); rover-scale approximate.",
+   "sources": [
+    "https://science.nasa.gov/mission/mars-2020-perseverance/mars-rock-samples",
+    "https://mars.nasa.gov/mmgis-maps/M20/Layers/json/M20_waypoints.json"
+   ]
+  },
+  {
+   "id": "sample-cheyava-falls",
+   "name": "Cheyava Falls",
+   "category": "sample",
+   "lon": 77.30519089,
+   "lat": 18.49748444,
+   "elev_geoid_m": -2354.03125,
+   "description": "Rock core sample site. NASA lists 'Sapphire Canyon' (#25, sol 1215, 2024-07-21) from the 'Cheyava Falls' feature; rock type: Sedimentary. Rock in Neretva Vallis whose 'leopard spot' textures NASA has described as a potential biosignature that requires further study; not a confirmed detection of life.",
+   "samples": [
+    {
+     "no": 25,
+     "name": "Sapphire Canyon",
+     "sol": 1215,
+     "date": "2024-07-21",
+     "type": "Rock core",
+     "rock": "Sedimentary"
+    }
+   ],
+   "status": "observed",
+   "location_method": "Perseverance position on sol 1210 (last MMGIS waypoint at or before sol 1215); rover-scale approximate.",
+   "sources": [
+    "https://science.nasa.gov/mission/mars-2020-perseverance/mars-rock-samples",
+    "https://mars.nasa.gov/mmgis-maps/M20/Layers/json/M20_waypoints.json"
+   ]
+  },
+  {
+   "id": "sample-shallow-bay",
+   "name": "Shallow Bay",
+   "category": "sample",
+   "lon": 77.26474536,
+   "lat": 18.46055288,
+   "elev_geoid_m": -1820.02771,
+   "description": "Rock core sample site. NASA lists 'Silver Mountain' (#26, sol 1401, 2025-01-28) from the 'Shallow Bay' feature; rock type: Igneous/impactite.",
+   "samples": [
+    {
+     "no": 26,
+     "name": "Silver Mountain",
+     "sol": 1401,
+     "date": "2025-01-28",
+     "type": "Rock core",
+     "rock": "Igneous/impactite"
+    }
+   ],
+   "status": "observed",
+   "location_method": "Perseverance position on sol 1400 (last MMGIS waypoint at or before sol 1401); rover-scale approximate.",
+   "sources": [
+    "https://science.nasa.gov/mission/mars-2020-perseverance/mars-rock-samples",
+    "https://mars.nasa.gov/mmgis-maps/M20/Layers/json/M20_waypoints.json"
+   ]
+  },
+  {
+   "id": "sample-tablelands",
+   "name": "Tablelands",
+   "category": "sample",
+   "lon": 77.2592004,
+   "lat": 18.46140741,
+   "elev_geoid_m": -1906.711426,
+   "description": "Rock core sample site. NASA lists 'Green Gardens' (#27, sol 1433, 2025-03-02) from the 'Tablelands' feature; rock type: Serpentinite.",
+   "samples": [
+    {
+     "no": 27,
+     "name": "Green Gardens",
+     "sol": 1433,
+     "date": "2025-03-02",
+     "type": "Rock core",
+     "rock": "Serpentinite"
+    }
+   ],
+   "status": "observed",
+   "location_method": "Perseverance position on sol 1431 (last MMGIS waypoint at or before sol 1433); rover-scale approximate.",
+   "sources": [
+    "https://science.nasa.gov/mission/mars-2020-perseverance/mars-rock-samples",
+    "https://mars.nasa.gov/mmgis-maps/M20/Layers/json/M20_waypoints.json"
+   ]
+  },
+  {
+   "id": "sample-broom-point",
+   "name": "Broom Point",
+   "category": "sample",
+   "lon": 77.25850303,
+   "lat": 18.46172733,
+   "elev_geoid_m": -1918.451782,
+   "description": "Rock core sample site. NASA lists 'Main River' (#28, sol 1441, 2025-03-10) from the 'Broom Point' feature; rock type: Igneous/impactite.",
+   "samples": [
+    {
+     "no": 28,
+     "name": "Main River",
+     "sol": 1441,
+     "date": "2025-03-10",
+     "type": "Rock core",
+     "rock": "Igneous/impactite"
+    }
+   ],
+   "status": "observed",
+   "location_method": "Perseverance position on sol 1435 (last MMGIS waypoint at or before sol 1441); rover-scale approximate.",
+   "sources": [
+    "https://science.nasa.gov/mission/mars-2020-perseverance/mars-rock-samples",
+    "https://mars.nasa.gov/mmgis-maps/M20/Layers/json/M20_waypoints.json"
+   ]
+  },
+  {
+   "id": "three-forks-depot",
+   "name": "Three Forks Sample Depot",
+   "category": "sample",
+   "lon": 77.40775601,
+   "lat": 18.45262651,
+   "elev_geoid_m": -2545.263,
+   "description": "Area where Perseverance deposited a set of sample tubes on the surface (sample table lists them as 'Sample Depot'), as a backup cache for a future return mission.",
+   "status": "observed",
+   "location_method": "Perseverance position on sol 652 (deposit operations began 2022-12-21); approximate.",
+   "sources": [
+    "https://science.nasa.gov/mission/mars-2020-perseverance/mars-rock-samples",
+    "https://mars.nasa.gov/mmgis-maps/M20/Layers/json/M20_waypoints.json"
+   ]
+  },
+  {
+   "id": "landing",
+   "name": "Octavia E. Butler Landing",
+   "category": "landmark",
+   "lon": 77.45088572,
+   "lat": 18.44462715,
+   "elev_geoid_m": -2569.91,
+   "description": "Touchdown site of the Perseverance rover (18 February 2021) on the Jezero crater floor.",
+   "status": "observed",
+   "location_method": "First rover waypoint in the NASA/JPL MMGIS file (sol 13).",
+   "sources": [
+    "https://mars.nasa.gov/mmgis-maps/M20/Layers/json/M20_waypoints.json"
+   ]
+  },
+  {
+   "id": "jezero-center",
+   "name": "Jezero Crater",
+   "category": "landmark",
+   "lon": 77.69,
+   "lat": 18.41,
+   "description": "Impact crater about 47.5 km in diameter (IAU) that once held a lake fed by river channels; landing site of the Mars 2020 mission.",
+   "status": "observed",
+   "location_method": "IAU feature centre (USGS Gazetteer, planetocentric +East).",
+   "sources": [
+    "https://planetarynames.wr.usgs.gov/"
+   ]
+  },
+  {
+   "id": "neretva-vallis",
+   "name": "Neretva Vallis",
+   "category": "landmark",
+   "lon": 77.2,
+   "lat": 18.55,
+   "description": "Valley that breaches the western rim of Jezero; Sun & Stack (2020) interpret the older fan unit as sourced from it.",
+   "status": "observed",
+   "location_method": "IAU feature centre (USGS Gazetteer).",
+   "sources": [
+    "https://planetarynames.wr.usgs.gov/",
+    "https://doi.org/10.3133/sim3464"
+   ]
+  },
+  {
+   "id": "sava-vallis",
+   "name": "Sava Vallis",
+   "category": "landmark",
+   "lon": 77.13,
+   "lat": 19.09,
+   "description": "Valley entering Jezero from the north.",
+   "status": "observed",
+   "location_method": "IAU feature centre (USGS Gazetteer).",
+   "sources": [
+    "https://planetarynames.wr.usgs.gov/"
+   ]
+  },
+  {
+   "id": "western-fan",
+   "name": "Jezero western fan (delta)",
+   "category": "landmark",
+   "lon": 77.39592,
+   "lat": 18.49883,
+   "description": "Fan-shaped sedimentary deposit at the mouth of Neretva Vallis (mapped as Jezero fan units 1 and 2 by Sun & Stack 2020), interpreted as an ancient river delta (Mangold et al., 2021).",
+   "status": "derived",
+   "location_method": "Centroid of the largest 'Jezero fan 2 unit' polygon, USGS SIM 3464.",
+   "sources": [
+    "https://doi.org/10.3133/sim3464",
+    "https://doi.org/10.1126/science.abl4051"
+   ]
+  }
+ ]
+}

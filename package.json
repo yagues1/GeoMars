@@ -1,0 +1,32 @@
+{
+  "name": "geomars",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "GeoMars V1.0 - terrain-aware navigation for Jezero Crater, Mars, built on NASA/USGS data",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "prepare-data": ".venv-geo/Scripts/python -I scripts/prepare_data.py"
+  },
+  "dependencies": {
+    "maplibre-gl": "^5.24.1",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "zustand": "^5.1.0"
+  },
+  "devDependencies": {
+    "@fontsource-variable/geist": "^5.3.0",
+    "@fontsource-variable/geist-mono": "^5.3.0",
+    "@types/node": "^26.6.6",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.3.0",
+    "typescript": "^5.9.3",
+    "vite": "^8.3.8",
+    "vitest": "^5.1.0"
+  }
+}

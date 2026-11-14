@@ -1,0 +1,17 @@
+{
+ "width": 2228,
+ "height": 2533,
+ "cell_m_projected": 40.0,
+ "lon0_center": 76.99779278997498,
+ "lat0_center": 19.289849594768988,
+ "dlon": 0.0007114570299049209,
+ "dlat": 0.0006748241943246088,
+ "radius_m": 3396190.0,
+ "lat_ts": 18.4663,
+ "elev_nodata": -32768,
+ "slope_nodata": 255,
+ "slope_scale": 0.25,
+ "slope_method": "max of 20 m central-difference slopes within each 40 m cell (conservative)",
+ "source": "USGS M20_JezeroCrater_CTXDEM_20m.tif (Mars 2020 Science Investigation CTX DEM mosaic)",
+ "invalid_cells": 19028
+}

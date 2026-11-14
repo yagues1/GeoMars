@@ -1,0 +1,16 @@
+# dependencies
+node_modules/
+# build output
+dist/
+# Python environment for data preparation
+.venv-geo/
+__pycache__/
+# raw downloaded scientific products (large; re-downloadable — see README "Reproducing the data")
+data/raw/
+# local tooling / test artefacts
+.playwright-mcp/
+*.log
+.DS_Store
+# environment
+.env
+.env.*
