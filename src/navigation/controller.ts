@@ -8,6 +8,7 @@ import { playbackWarp, positionAtTime } from './simulator';
 import { arrivalPulseEl, navArrowEl } from '../map/markers';
 import { angleDelta } from '../geo/mars';
 import { easeInOutCubic } from '../map/easing';
+import { immersive, navClock } from '../immersive/state';
 
 /** Follow-camera zoom: close to the native 5 m/px resolution of the CTX orthomosaic (z14). */
 const NAV_ZOOM = 14.7;
@@ -29,6 +30,8 @@ export class NavigationController {
 
   constructor(map: MlMap) {
     this.map = map;
+    // the enhanced 3D renderer follows the same simulated clock (no second simulation)
+    navClock.get = () => (this.raf ? this.simTime : null);
     this.unsub = useStore.subscribe((s, prev) => {
       if (s.navStatus !== prev.navStatus) this.onStatus(s.navStatus, prev.navStatus);
       if (s.navSimTime !== prev.navSimTime && Math.abs(s.navSimTime - this.simTime) > 1e-6) {
@@ -45,6 +48,7 @@ export class NavigationController {
   }
 
   dispose() {
+    navClock.get = () => null;
     this.unsub();
     this.teardown();
   }
@@ -68,6 +72,7 @@ export class NavigationController {
     this.camBearing = p.heading;
     this.arrowBearing = p.tangent;
     this.ensureArrow(p.lngLat, p.tangent);
+    if (immersive.active) return; // the 3D renderer owns its own follow camera
     this.map.easeTo({ center: p.lngLat, offset: this.camOffset(), zoom: navZoom(route.mode), pitch: 62, bearing: p.heading, duration: 1800, easing: easeInOutCubic });
   }
 
@@ -136,6 +141,7 @@ export class NavigationController {
     // the arrow follows the local tangent closely but never snaps between directions
     const ka = snap ? 1 : 1 - Math.exp(-dt * 9);
     this.arrowBearing = (this.arrowBearing + angleDelta(this.arrowBearing, p.tangent) * ka + 360) % 360;
+    if (immersive.active) return p.done; // hidden 2D map: no per-frame camera/marker work
     this.ensureArrow(p.lngLat, this.arrowBearing);
     // traveled part of the route is dimmed
     const done = route.coordinates.slice(0, p.seg + 1);
@@ -156,6 +162,10 @@ export class NavigationController {
     const end = route.coordinates[route.coordinates.length - 1];
     useStore.setState({ navStatus: 'arrived', navSimTime: route.timeS });
     this.pulse = new maplibregl.Marker({ element: arrivalPulseEl(), pitchAlignment: 'map' }).setLngLat(end).addTo(this.map);
+    if (immersive.active) {
+      window.setTimeout(() => useStore.setState({ arrivalOpen: true }), 2600);
+      return;
+    }
     // cinematic arrival: slow orbit + gentle pull-back, then reveal destination card
     this.map.easeTo({
       center: end,

@@ -2,6 +2,10 @@ import { useStore, type LayerState, type MapStyleId } from '../../state/store';
 import { IconClose } from '../icons/Icons';
 import { DATA_BASE } from '../../config/constants';
 import { GEO_UNITS } from '../../data/geology';
+import { QUALITY, type QualityId } from '../../immersive/quality';
+import { ENHANCED_3D_DISCLOSURE } from '../../immersive/state';
+
+const QUALITY_IDS: QualityId[] = ['performance', 'balanced', 'cinematic'];
 
 const STYLES: { id: MapStyleId; label: string; thumb: string }[] = [
   { id: 'satellite', label: 'Satellite', thumb: `${DATA_BASE}/tiles/ortho/11/1464/917.webp` },
@@ -16,6 +20,12 @@ interface Item {
   unavailable?: boolean;
   legend?: 'hazard' | 'slope' | 'geology' | 'themis';
 }
+
+const QUALITY_NOTES: Record<QualityId, string> = {
+  performance: 'Fewer rocks, no shadows, lighter terrain mesh — most responsive',
+  balanced: 'Detailed terrain, rocks and soft shadows — recommended',
+  cinematic: 'Densest terrain and rocks, high-resolution shadows and extra surface detail',
+};
 
 const GROUPS: { title: string; items: Item[] }[] = [
   {
@@ -117,7 +127,24 @@ export function LayersMenu() {
           </div>
         )}
       </div>
-      {s.view3d && <p className="gm-fine">3D relief: CTX DEM (20 m) inside the crater region, MOLA (463 m) beyond. Exaggeration is visual only and never affects route calculations.</p>}
+      {s.view3d && s.render3d !== 'fallback' && (
+        <div className="gm-viewrow">
+          <div className="gm-seg small three" role="radiogroup" aria-label="3D visual quality">
+            {QUALITY_IDS.map((q) => (
+              <button key={q} role="radio" aria-checked={s.quality3d === q} className={s.quality3d === q ? 'on' : ''} onClick={() => s.set({ quality3d: q })} title={QUALITY_NOTES[q]}>
+                {QUALITY[q].label}
+              </button>
+            ))}
+            <span className="gm-seg-thumb" style={{ transform: `translateX(${QUALITY_IDS.indexOf(s.quality3d) * 100}%)` }} />
+          </div>
+        </div>
+      )}
+      {s.view3d && (
+        <p className="gm-fine">
+          3D relief: CTX DEM (20 m) inside the crater region, MOLA (463 m) beyond. Exaggeration and quality are visual only and never affect route calculations.
+          {s.render3d !== 'fallback' ? ` ${ENHANCED_3D_DISCLOSURE}` : ' Enhanced 3D needs WebGL 2 — standard terrain shown.'}
+        </p>
+      )}
       <div className="gm-layer-groups">
         {GROUPS.map((g) => (
           <section key={g.title}>

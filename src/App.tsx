@@ -7,6 +7,7 @@ import { ArrivalCard, NavHUD } from './ui/components/Navigation';
 import { LayersMenu } from './ui/components/LayersMenu';
 import { BottomBar, IntroOverlay, MapControls, SourcesModal, Toast } from './ui/components/Chrome';
 import { NavTopBar, Sidebar } from './ui/components/Sidebar';
+import { Hud3D } from './ui/components/Hud3D';
 
 function RouteBanner() {
   const origin = useStore((s) => s.origin);
@@ -67,6 +68,7 @@ export default function App() {
             </>
           )}
           <MapControls />
+          <Hud3D />
           <LayersMenu />
           <ArrivalCard />
           <BottomBar />

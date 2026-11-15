@@ -15,6 +15,8 @@ import { marsDistance, type LngLat } from '../geo/mars';
 import { cancelReveal, showRoute } from './routeReveal';
 import { boundsOf, routePadding } from '../state/actions';
 import { PoiLayout } from './poiLayout';
+import { changeQuality, dispose3d, enter3d, exit3d, syncMapFrom3d } from './enhanced3d';
+import { immersive } from '../immersive/state';
 
 const LAYER_IDS: Record<keyof LayerState, string[]> = {
   pois: [],
@@ -133,7 +135,7 @@ export function skipIntro() {
   if (map) jumpToWorkingView(map);
 }
 
-async function inspectAt(lngLat: LngLat) {
+export async function inspectAt(lngLat: LngLat) {
   const { pois } = useStore.getState();
   const terrain = await routing().inspect(lngLat).catch(() => null);
   let nearest: { poi: Poi; distanceM: number } | null = null;
@@ -207,12 +209,42 @@ export function MapView() {
       applyStyle();
     };
 
-    const applyTerrain = () => {
-      const { view3d, exaggeration, appMode } = useStore.getState();
+    /** Map click (2D) or surface pick (enhanced 3D): same planning behaviour in both renderers. */
+    const handleClick = (p: LngLat) => {
+      const s = useStore.getState();
+      if (s.phase !== 'ready' || s.appMode !== 'planning') return;
+      if (s.tool === 'route') s.setPoint(p);
+      else void inspectAt(p);
+    };
+
+    const handlePoi = (p: Poi) => {
+      const s = useStore.getState();
+      if (s.appMode !== 'planning') return;
+      if (s.tool === 'route') s.setPoint([p.lon, p.lat], p.name);
+      else {
+        useStore.setState({ selectedPoi: p, inspect: null });
+        // camera commands go through MapLibre; the 3D view mirrors them
+        map.easeTo({ center: [p.lon, p.lat], zoom: Math.max(map.getZoom(), 13.2), duration: 900, easing: easeInOutCubic });
+      }
+    };
+    const callbacks3d = { click: handleClick, poiClick: handlePoi };
+
+    const applyLegacyTerrain = () => {
+      const { exaggeration } = useStore.getState();
+      map.setTerrain({ source: 'terrain', exaggeration: TRUE_SCALE_EXAGGERATION * exaggeration });
+    };
+
+    const applyTerrain = async () => {
+      const { view3d, appMode } = useStore.getState();
+      const mapEl = ref.current!;
       if (view3d) {
-        map.setTerrain({ source: 'terrain', exaggeration: TRUE_SCALE_EXAGGERATION * exaggeration });
-        if (appMode === 'planning' && map.getPitch() < 30) map.easeTo({ pitch: 58, duration: 1200, easing: easeInOutCubic });
+        map.setTerrain(null);
+        const ok = await enter3d(map, mapEl, callbacks3d);
+        if (!useStore.getState().view3d) return;
+        if (!ok) applyLegacyTerrain(); // no WebGL2: MapLibre terrain fallback
+        if (appMode === 'planning' && map.getPitch() < 30) map.easeTo({ pitch: 58, duration: 1400, easing: easeInOutCubic });
       } else {
+        exit3d(map, mapEl);
         map.setTerrain(null);
         if (appMode === 'planning' && map.getPitch() > 0) map.easeTo({ pitch: 0, bearing: 0, duration: 1000, easing: easeInOutCubic });
       }
@@ -268,11 +300,7 @@ export function MapView() {
             map.easeTo({ center: [p.lon, p.lat], zoom: Math.min(16, map.getZoom() + 1.8), duration: 800, easing: easeInOutCubic });
             return;
           }
-          if (s.tool === 'route') s.setPoint([p.lon, p.lat], p.name);
-          else {
-            useStore.setState({ selectedPoi: p, inspect: null });
-            map.easeTo({ center: [p.lon, p.lat], zoom: Math.max(map.getZoom(), 13.2), duration: 900, easing: easeInOutCubic });
-          }
+          handlePoi(p);
         });
         poiMarkers.push(new maplibregl.Marker({ element: el }).setLngLat([p.lon, p.lat]).addTo(map));
         entries.push({ poi: p, el });
@@ -315,13 +343,7 @@ export function MapView() {
     map.on('rotateend', endInteract);
     map.on('pitchend', endInteract);
 
-    map.on('click', (e) => {
-      const s = useStore.getState();
-      if (s.phase !== 'ready' || s.appMode !== 'planning') return;
-      const p: LngLat = [e.lngLat.lng, e.lngLat.lat];
-      if (s.tool === 'route') s.setPoint(p);
-      else void inspectAt(p);
-    });
+    map.on('click', (e) => handleClick([e.lngLat.lng, e.lngLat.lat]));
 
     let styleReady = false;
     map.on('load', () => {
@@ -366,7 +388,9 @@ export function MapView() {
     const unsub = useStore.subscribe((s, prev) => {
       if (!styleReady) return;
       if (s.layers !== prev.layers || s.mapStyle !== prev.mapStyle) applyLayers();
-      if (s.view3d !== prev.view3d || s.exaggeration !== prev.exaggeration) applyTerrain();
+      if (s.view3d !== prev.view3d) void applyTerrain();
+      else if (s.exaggeration !== prev.exaggeration && s.view3d && !immersive.active) applyLegacyTerrain();
+      if (s.quality3d !== prev.quality3d) void changeQuality(map, ref.current!, callbacks3d);
       if (s.route !== prev.route) applyRoute(!!s.route);
       if (s.selectedPoi !== prev.selectedPoi) applySelected();
       if (s.origin !== prev.origin || s.destination !== prev.destination) applyEndpoints();
@@ -380,6 +404,7 @@ export function MapView() {
           navController?.enter();
         }
         else if (prev.appMode === 'navigation') {
+          syncMapFrom3d(); // the fit below starts from the 3D follow camera (no jump)
           const r = s.route;
           if (r) {
             map.fitBounds(boundsOf(r.coordinates), { padding: routePadding(), pitch: s.view3d ? 50 : 0, bearing: 0, duration: 1600, maxZoom: 15 });
@@ -396,6 +421,7 @@ export function MapView() {
       cancelReveal();
       navController?.dispose();
       navController = null;
+      dispose3d();
       map.remove();
       setMap(null);
     };
