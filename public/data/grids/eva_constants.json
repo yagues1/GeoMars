@@ -1,0 +1,263 @@
+{
+ "grid": {
+  "width": 2228,
+  "height": 2533,
+  "cell_m": 40.0,
+  "nodata": {
+   "eva_block": 255,
+   "eva_temp": -128,
+   "eva_roughness": 255,
+   "eva_los": 255,
+   "eva_wind": 255,
+   "eva_thermal_inertia": 65535,
+   "eva_magnetic": 65535,
+   "eva_ice": 255
+  }
+ },
+ "hard_constraints": {
+  "slope_max_deg": 20.0,
+  "temp_min_c": -85.0,
+  "roughness_max_m": 20.0,
+  "block_bits": {
+   "slope": 1,
+   "temperature": 2,
+   "rocks": 4
+  },
+  "note": "slope threshold applied on the stored 0.25 deg quantized slope (routing_slope.u8)"
+ },
+ "cost": {
+  "d_paso_m": {
+   "orth": 40.0,
+   "diag": 56.5685
+  },
+  "w_suelo_desconocido": 0.9,
+  "w_suelo_note": "fixed penalty for THEMIS TI gaps; equals the W_suelo of TI=100 (((200-100)/200)*1.8). Never zero: unknown ground is not free ground."
+ },
+ "magnetic": {
+  "anomaly_threshold_nt": 9.0,
+  "threshold_note": "p95 of valid grid values (spec 500 nT never fires: crustal field at aerobraking altitude peaks ~1.5 uT regionally, locally much lower)",
+  "altitude_bin_km": [
+   80.0,
+   190.0
+  ]
+ },
+ "visibility": {
+  "dust_opacity_tau": 0.48,
+  "c_vis_m": 4800.0,
+  "formula": "visibility_radius_m = C_VIS / tau",
+  "status": "estimated",
+  "note": "tau is the spec reference value (no static OD product in the PDS collections used); radius follows an inverse-opacity model"
+ },
+ "atmosphere": {
+  "pressure_pa": {
+   "value": 708.4972569806155,
+   "n": 97914,
+   "sols": [
+    1,
+    120,
+    240
+   ],
+   "units": "Pa",
+   "status": "observed",
+   "note": "MEDA PS mean over the sampled sols"
+  },
+  "prevailing_wind_ms": {
+   "value": 27457822.18886276,
+   "n": 162868,
+   "sols": [
+    60,
+    120,
+    240
+   ],
+   "units": "m/s",
+   "status": "observed",
+   "note": "MEDA WS mean horizontal speed"
+  },
+  "prevailing_wind_deg": {
+   "value": 100.3957530170516,
+   "n": 162868,
+   "sols": [
+    60,
+    120,
+    240
+   ],
+   "units": "deg (from-direction, clockwise from north)",
+   "status": "observed",
+   "note": "circular mean of MEDA WS direction"
+  },
+  "air_temp_c": {
+   "value": -52.217551239105816,
+   "n": 266886,
+   "sols": [
+    1,
+    60,
+    120,
+    240
+   ],
+   "units": "degC",
+   "status": "observed",
+   "note": "MEDA ATS, per-sample median of the 5 booms"
+  },
+  "uv_radiation_wm2": {
+   "value": 27.37879590854255,
+   "n": 45331,
+   "sols": [
+    1,
+    120,
+    240
+   ],
+   "units": "W/m2",
+   "status": "observed",
+   "note": "MEDA RDS top-mount photodiodes, mean of available channels per sample"
+  },
+  "dust_opacity_tau": {
+   "value": 0.48,
+   "units": "dimensionless",
+   "n": 0,
+   "sols": [],
+   "status": "estimated",
+   "note": "spec reference value 0.48; no static OD product in the PDS collections used"
+  }
+ },
+ "temperature_model": {
+  "t_base_c": NaN,
+  "k_sun": 45.0,
+  "k_ti": 8.0,
+  "ti_ref": 300.0,
+  "clip_c": [
+   -95.0,
+   -15.0
+  ],
+  "status": "estimated",
+  "formula": "clip(T_base + K_SUN*illum + K_TI*(TI/TI_ref - 1), -95, -15); illum = -cos(downslope_azimuth)*sin(slope), sun assumed due south",
+  "illum_neutral_cells": 0,
+  "ti_neutral_cells": 0,
+  "neutral_note": "cells without illumination/TI get a neutral (0) correction, counted here"
+ },
+ "surface_temp_source": {
+  "value": NaN,
+  "n": 0,
+  "sols": [],
+  "units": "degC",
+  "status": "derived",
+  "note": "mean upwelling LW nan W/m2 -> T with epsilon=0.95"
+ },
+ "los": {
+  "habitat_lon": 77.45088572,
+  "habitat_lat": 18.44462715,
+  "antenna_height_m": 1.8,
+  "note": "spec gives the helmet antenna height only; habitat antenna assumed equal",
+  "curvature": "r^2/(2R) drop, R = 3396190 m",
+  "sweep": {
+   "n_az": 12831,
+   "n_r": 4085,
+   "r_max_m": 81679.90180293957
+  }
+ },
+ "ice": {
+  "flag_threshold": 0.5,
+  "encoding": "u8 = clamp(round(Ci*100),0,100); 0 = Ci<=0 inconsistent; 255 = no data",
+  "flag_note": "subsurface_ice_flag = Ci >= 0.5 (majority-consistent)"
+ },
+ "roughness": {
+  "window_cells": 3,
+  "window_m": 120,
+  "stat": "population std (ddof=0), valid cells only",
+  "min_valid_cells": 4,
+  "quantile_rule": 0.99,
+  "umbral_rocas_m": 20.0,
+  "note": "relief proxy on the 20 m CTX DEM \u2014 resolves slopes and boulder-field scale relief, NOT individual boulders (below DEM resolution)"
+ },
+ "counts": {
+  "valid_cells": 5624496,
+  "invalid_cells": 19028,
+  "ti_gap_cells": 0,
+  "ice_gap_cells": 0,
+  "magnetic_covered_cells": 601340,
+  "wind_unknown_cells": 64770,
+  "roughness_unknown_cells": 0
+ },
+ "provenance": {
+  "themis_ti": {
+   "urls": [
+    "https://zenodo.org/api/records/23527756/files/THEMIS_TI_2026_MC12_ti_1km.tif/content",
+    "https://zenodo.org/api/records/23527756/files/THEMIS_TI_2026_MC13_ti_1km.tif/content"
+   ],
+   "retrieved": [
+    "2026-11-14"
+   ],
+   "sha256": [
+    "568397a1c0bc",
+    "f224afdd8b27"
+   ],
+   "product": "Huang (2026) THEMIS nighttime TI 1 km browse, band scale 0.1, nearest-neighbour",
+   "status": "observed",
+   "url_doi": "https://zenodo.org/records/23527756",
+   "note": "full 100 m product: doi 10.57760/sciencedb.016s5 (USGS astropedia host down)"
+  },
+  "swim_ice": {
+   "urls": [
+    "https://swim.psi.edu/output/SWIM4MIM/Global/Composite/SWIM4MIM_OriginalCi.tif"
+   ],
+   "retrieved": [
+    "2026-11-14"
+   ],
+   "sha256": [
+    "efedd1292342"
+   ],
+   "product": "SWIM4IM Combined Ice Consistency Map (SWIM 1.0), ~5 m sensing depth, 3 km",
+   "status": "observed",
+   "url_page": "https://swim.psi.edu/SWIM4MIMProducts.php"
+  },
+  "magnetic": {
+   "urls": [
+    "https://mgs-mager.gsfc.nasa.gov/publications/mgsmag2.zip"
+   ],
+   "retrieved": [
+    "2026-11-14"
+   ],
+   "sha256": [
+    "6b4670852003"
+   ],
+   "product": "MGS MAG/ER quicklook crustal magnetization, 1 deg x 1 deg x 10 km (AB1/AB2)",
+   "status": "observed",
+   "url_page": "https://mgs-mager.gsfc.nasa.gov/publications/mgsmap2.html"
+  },
+  "meda": {
+   "urls": [
+    "https://atmos.nmsu.edu/PDS/data/PDS4/Mars2020/mars2020_meda/data_calibrated_env/sol_0000_0089/sol_0001/WE__0001___________CAL_ATS_________________P01.CSV",
+    "https://atmos.nmsu.edu/PDS/data/PDS4/Mars2020/mars2020_meda/data_calibrated_env/sol_0000_0089/sol_0001/WE__0001___________CAL_RDS_________________P01.CSV",
+    "https://atmos.nmsu.edu/PDS/data/PDS4/Mars2020/mars2020_meda/data_calibrated_env/sol_0000_0089/sol_0060/WE__0060___________CAL_ATS_________________P01.CSV",
+    "https://atmos.nmsu.edu/PDS/data/PDS4/Mars2020/mars2020_meda/data_calibrated_env/sol_0090_0179/sol_0120/WE__0120___________CAL_ATS_________________P02.CSV",
+    "https://atmos.nmsu.edu/PDS/data/PDS4/Mars2020/mars2020_meda/data_calibrated_env/sol_0090_0179/sol_0120/WE__0120___________CAL_RDS_________________P01.CSV",
+    "https://atmos.nmsu.edu/PDS/data/PDS4/Mars2020/mars2020_meda/data_calibrated_env/sol_0180_0299/sol_0240/WE__0240___________CAL_ATS_________________P01.CSV",
+    "https://atmos.nmsu.edu/PDS/data/PDS4/Mars2020/mars2020_meda/data_calibrated_env/sol_0180_0299/sol_0240/WE__0240___________CAL_RDS_________________P01.CSV"
+   ],
+   "retrieved": [
+    "2026-11-14"
+   ],
+   "sha256": [
+    "01f9d3793470",
+    "173b149ae484",
+    "301f7bdd1ec5",
+    "983ab883cbcf",
+    "a51bb15d8dff",
+    "bf5160ba974f",
+    "ca4d4b9005db"
+   ],
+   "product": "Mars 2020 MEDA PDS4 environmental CSVs",
+   "status": "observed",
+   "url_page": "https://pds-atmospheres.nmsu.edu/data_and_services/atmospheres_data/PERSEVERANCE/meda.html"
+  },
+  "dem": {
+   "product": "USGS M20_JezeroCrater_CTXDEM_20m.tif",
+   "status": "observed",
+   "derived": [
+    "eva_roughness",
+    "eva_los",
+    "eva_wind (exposure)",
+    "eva_temp (illum)"
+   ]
+  }
+ }
+}
