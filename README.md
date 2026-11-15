@@ -1,159 +1,123 @@
 # GeoMars V1.0
 
-Terrain-aware navigation for **Jezero Crater, Mars** — a Google-Maps-like web app built on real NASA / USGS data.
-Open the app, watch Mars rotate and the camera descend onto Jezero, pick an origin and a destination, compute an
-optimised route for a crewed exploration vehicle over the real CTX elevation model, and follow it in a simulated
-astronaut-navigation view.
+Exploring Mars demands far more than a static map: astronauts and mission planners must weigh terrain hazards, scientific targets, and environmental constraints scattered across multiple planetary missions. **GeoMars V1.0** addresses this challenge as a two-part system for **Jezero Crater**: an offline-first, terrain-aware navigation web application built on real NASA and USGS observations, paired with an ergonomic rugged tablet concept designed for crewed surface operations.
 
-> Built for the NASA Space Apps Challenge. Routes are **estimates for exploration planning and education**, not
-> astronaut-grade or safety-certified traverse plans.
+## Interactive Visualization & Scientific Data Integration
 
-## Run locally
+Built with MapLibre GL JS, the application opens with a rotating 3D Mars globe (Viking color mosaic) that flies smoothly down into Jezero Crater. All map tiles, elevation grids, and vector layers are stored locally so the entire platform operates offline without network access. Users can switch seamlessly between 2D and 3D terrain—scaled to true Martian planetary proportions (**R = 3,396,190 m**)—across **Satellite**, **Topographic** (hypsometric tinting, hillshade, and 100 m contours), and **Hybrid** styles.
 
-Requirements: Node.js ≥ 20 (tested with 22.15).
+Rather than relying on synthetic terrain, GeoMars integrates curated planetary datasets with full source provenance:
+
+- **Topography & Imagery:** 5 m/px CTX orthomosaics and 20 m/px CTX stereo elevation models inside Jezero Crater, framed by regional 463 m/px MOLA topography.
+
+- **Geology & Thermophysics:** USGS SIM 3464 geological unit maps and landing ellipses, alongside 100 m/px THEMIS day and night infrared mosaics.
+
+- **Surface Mission Context:** *Perseverance* rover traverse paths, waypoints, and sealed rock-sample sites (such as *Sapphire Canyon*), searchable by site name, sample name, or Martian coordinates.
+
+## Terrain-Aware Routing & Simulated EVA Navigation
+
+GeoMars operates in two synchronized modes. In **Mission Planning**, users can click anywhere to inspect local elevation, derived slope, geological unit, THEMIS infrared brightness, and the nearest scientific site, or select an origin and destination within the CTX elevation footprint to compute an optimized traverse.
+
+Pathfinding runs asynchronously in a Web Worker using a deterministic A* algorithm over a 40 m grid aggregated from the 20 m DEM. The engine enforces strict physical safety boundaries—removing DEM data gaps and slopes exceeding 20° from the graph—while minimizing a physical cost function that combines slope-adjusted travel time, estimated vehicle energy consumption, caution penalties for 15°–20° inclines, and buffer zones around missing data. Once a route is calculated, **Astronaut Navigation** mode simulates the traverse with a tilted follow camera, directional marker, remaining distance and time metrics, contextual turn and slope alerts, and an orbiting arrival view displaying destination sampling notes.
+
+## Ergonomic Hardware & Spacesuit Integration Concept
+
+To bridge the gap between mission software and field usability, the team designed a conceptual rugged tablet engineered around human factors for bulky pressurized gloves (informed by NASA's Z-2 spacesuit context). The hardware supports two operational modes: **Mode A**, secured inside a pressurized rover via a positive mechanical latch, and **Mode B**, carried by hand or docked to the astronaut's thigh during extravehicular activities (EVAs).
+
+Key mechanical and material design choices include:
+
+- **Dust-Aware Unibody & Grip:** A CNC-machined 6061-T651 aluminum enclosure minimizes seams, paired with a raised, shallow-contoured rear grip in SSP2575 silicone elastomer that improves gloved retention without creating deep traps for abrasive Martian regolith.
+
+- **Protected Optical Stack & Active Stylus:** An aluminosilicate cover glass coated with diamond-like carbon (DLC) and SiO₂/TiO₂ anti-reflective layers, bonded with compliant silicone RTV. Input is supported by an oversized active stylus with a replaceable tip and a braided Vectran tether to prevent loss.
+
+- **Suit Docking & Wireless Power:** Samarium-cobalt (Sm₂Co₁₇) magnets align the tablet with a thigh-mounted suit dock—backed up by a secondary mechanical restraint—to enable copper-and-ferrite inductive charging while thermally isolating charging losses away from the spacesuit.
+
+## Source Data Provenance
+
+All planetary datasets are openly sourced with full attribution:
+
+| Dataset | Resolution | Provider | Type |
+|---------|------------|----------|------|
+| CTX Orthomosaic | 5 m/px | USGS Astrogeology / MRO | Observed |
+| CTX DEM | 20 m/px | USGS Astrogeology / MRO | Observed |
+| THEMIS Day IR | 100 m/px | USGS SIM 3464 | Observed |
+| THEMIS Night IR | 100 m/px | USGS SIM 3464 | Observed |
+| MOLA Regional DEM | 463 m/px | NASA MGS | Observed |
+| SWIM Ice Consistency | ~5 m sensing | PSI / JPL | Estimated |
+| MAG/ER Magnetization | 1° × 1° | NASA GSFC | Observed |
+
+Full data sources, DOIs, and citations are documented in `/data/raw/manifest.json` and referenced throughout the codebase.
+
+## Documentation & Technical Reports
+
+Comprehensive engineering documentation is available in the `/docs/` directory (root of project):
+
+- **Core Architecture:** `IMPLEMENTATION_SUMMARY.md`, `ROUTING_IMPLEMENTATION.md`, `CRS_PROJECTIONS.md`
+- **Data Pipeline:** `DATA_PIPELINE.md`, `EVA_GENERATION.md`, `THEMIS_INTEGRATION.md`
+- **Diagnosis & Debugging:** `DIAGNOSTIC_REPORTS/` (routing issues, grid coverage analysis)
+- **Engineering Transparency:** Full scope, design decisions, and known limitations
+
+The complete technical documentation spans **over 40 pages** covering data processing workflows, routing algorithms, coordinate reference systems, EVA simulation logic, and integration with planetary datasets. See `DOCUMENTATION_INDEX.md` in the root directory for a structured overview of all technical documents.
+
+## Physical Screen Design (SolidWorks Models)
+
+The ergonomic tablet design includes complete CAD models available in `/physical_screen_design/`:
+
+- **Main Tablet Body:** Full assembly with aluminum unibody, grip contours, and mounting points
+- **Thigh Dock Assembly:** Magnetic coupling mechanism with mechanical backup restraint
+- **Stylus Design:** Oversized active stylus with Vectran tether attachment
+- **Exploded Views:** All assemblies with bill of materials and dimensional annotations
+
+These SolidWorks files support prototyping, manufacturing preparation, and human-factors verification. See `physical_screen_design/README.md` for model versions, file structures, and assembly instructions.
+
+## Getting Started
+
+### Development Setup
 
 ```bash
+# Install dependencies
 npm install
+
+# Start development server (http://localhost:5180)
 npm run dev
+
+# Production build
+npm run build && npm run preview → http://localhost:4173
 ```
 
-Open **http://localhost:5180**. Production build: `npm run build && npm run preview` → http://localhost:4173.
-Unit tests (routing engine): `npm test`.
+### Data Pipeline
 
-All map tiles, elevation grids and vectors are already in `public/data/` — no network access to NASA services is
-needed at runtime.
-
-## What works
-
-| Area | Implemented |
-|---|---|
-| Intro | Mars globe (Viking colour mosaic) rotates, cinematic fly-down onto Jezero, seamless hand-off to the local map (skippable; honours reduced-motion). |
-| Map | MapLibre GL JS: pan, wheel/pinch zoom, rotate/tilt (right-drag / two-finger), keyboard, touch. |
-| Styles | **Satellite** (CTX 5 m orthomosaic over Viking colour), **Topographic** (hypsometric tint + hillshade from CTX DEM/MOLA + 100 m contours), **Hybrid** (orthomosaic + DEM hillshade). |
-| 2D / 3D | 3D terrain from the CTX DEM (20 m) inside the crater region and MOLA (463 m) beyond. "True scale" or "Relief ×2" (visual only). |
-| Modes | **Mission Planning** (Explore / Route tools) and **Astronaut Navigation**, sharing one state (route, terrain, camera). |
-| Explore | Click → card with elevation (observed), slope (derived), USGS geologic unit, THEMIS night-IR brightness, nearest site; discreet "no data" notices. |
-| Route | Click origin, click destination, *Calculate route* → A* on the DEM-derived graph in a Web Worker; distance + time; details (energy, ascent, max slope, search stats); Clear route. |
-| Navigation | Directional arrow following the computed geometry, tilted follow camera with smoothed bearing, remaining distance/time, progress bar, contextual instructions (turns, steep stretches, arrival), Start / Pause / Resume / Restart, return to planning. |
-| Arrival | Orbiting arrival shot, pulse marker, destination card (site description, sampling interest), *Plan next route from here*. |
-| Layers | Slope, contours, geologic units, scientific sites, THEMIS night/day IR, hazard zones, Perseverance traverse, routing coverage, landing ellipse; automatic transparency when overlays are combined. CRISM minerals and MEDA weather are listed as **unavailable** (not integrated). |
-| Search | Site names, sample names (e.g. "Sapphire Canyon") and coordinates (`18.45, 77.40`, `18.45N 77.40E`, `282.6W`). |
-| Data & sources | Modal with provenance (source, product, instrument, date, resolution, coverage, status, limitations) for every dataset. |
-
-## Scientific data
-
-All coordinates: **Mars 2000 sphere, R = 3,396,190 m, planetocentric latitude, east-positive longitude (−180…180)** —
-read from each product's GeoTIFF WKT / GIS projection files.
-
-| Dataset | Source / product | Resolution | Coverage | Date | Status | Role |
-|---|---|---|---|---|---|---|
-| CTX orthomosaic | USGS Astrogeology — *Mars 2020 Science Investigation* `M20_JezeroCrater_CTXortho_mosaic_5m.tif` (MRO CTX) | 5 m/px | 77.00–78.58° E, 17.58–19.29° N | pub. 2021-10-14 | observed | Satellite / hybrid basemap |
-| CTX DEM mosaic | USGS — `M20_JezeroCrater_CTXDEM_20m.tif` (CTX stereo, Ames Stereo Pipeline, tied to MOLA) | 20 m/px | 76.997–78.583° E, 17.581–19.290° N | pub. 2021-10-14 | observed | Routing, 3D, elevation, topo |
-| Slope / hazard / routing grid / contours | Derived by `scripts/prepare_data.py` from the CTX DEM | 20 m (slope), 40 m (routing) | CTX DEM footprint | — | derived | Hazard zones, slope layer, routing |
-| MOLA DEM (window) | USGS — `Mars_MGS_MOLA_DEM_mosaic_global_463m.tif`, window 64–91° E, 5–32° N | 463 m/px | regional | MGS 1997–2001 | observed | 3D & topo context outside CTX (never routing) |
-| Viking MDIM 2.1 colour | NASA Mars Trek WMTS `Mars_Viking_MDIM21_ClrMosaic_global_232m` | ~2.6 km (global), ~326 m (regional) as downloaded | global | Viking 1976–80 | observed | Globe intro, regional colour |
-| MOLA colour shaded relief | NASA Mars Trek WMTS `Mars_MGS_MOLA_ClrShade_merge_global_463m` | ~2.6 km as downloaded | global | MGS | derived | Globe in Topographic style |
-| Geologic map | USGS SIM 3464 (Sun & Stack 2020), GIS database `GeoUnits_v1`, `LandingEllipse`, `MapBoundary` | 1:75,000 | Jezero + Nili Planum | 2020 | observed (interpretive map) | Geology layer & inspection |
-| THEMIS IR controlled mosaics | Distributed with SIM 3464 (`nili_THEMIS_{Day,Night}IR_Controlled_oct2018.tif`) | 100 m/px | 76.8–77.8° E, 17.7–18.7° N | Oct 2018 | observed (8-bit stretched, uncalibrated) | Thermophysical context layer |
-| Perseverance traverse & waypoints | NASA/JPL MMGIS `M20_traverse.json`, `M20_waypoints.json` | rover-scale | rover path, sols 13–2022 | 2021–2026 | observed | Traverse layer, sample-site positions |
-| Rock-sample table | NASA Science *Mars Rock Samples* | — | sample sites | sols 164–1441 | observed | Scientific destinations |
-| IAU feature centres | USGS Gazetteer of Planetary Nomenclature (Jezero, Neretva Vallis, Sava Vallis) | — | — | — | observed | Landmarks / search |
-
-Sample-site markers are placed at the **rover waypoint of the sol on which the sample was sealed** (last MMGIS waypoint
-at or before that sol) — rover-scale approximate, stated in each card.
-
-Validation: the CTX DEM gives −2567.4 m at the first Perseverance waypoint, which the rover file lists at −2569.9 m
-(Δ = 2.5 m).
-
-## Decision #68 — where routing is supported
-
-* **Visual exploration:** whole planet (Viking/MOLA) and full detail over the Jezero CTX footprint.
-* **Routing:** only inside the **CTX DEM footprint** (≈ 77.0–78.6° E, 17.6–19.3° N; ~89 × 101 km), the only product with
-  a resolution adequate for vehicle-scale slopes. MOLA (463 m) is never used for routing.
-* Inside the footprint, cells without DEM data (13,977 px, 0.06 %), a 2-cell frame at the DEM edge, and cells steeper
-  than the vehicle limit are **not graph nodes**. Cells within 2 cells of a data gap are flagged *lower confidence* and
-  penalised. Clicking outside the footprint returns *"outside the CTX elevation model"* — no route is fabricated.
-* Higher-resolution HiRISE DTMs (1 m) exist for parts of the crater floor but were not integrated in V1.0, so slopes
-  are representative at ~40–60 m scale; boulders, small scarps and ripples are not resolved.
-
-## Routing model
-
-* **Graph:** 2,228 × 2,533 grid of 40 m cells (2×2 aggregation of the 20 m DEM). Cell slope = *maximum* of the 20 m
-  central-difference slopes inside the cell (conservative), east–west spacing corrected per row for the
-  equirectangular projection. 8-connected; diagonal moves require both orthogonal neighbours to be traversable.
-* **Hard constraints (edge removal, not penalty):** no-data cells; slope > `maxSlopeDeg` (20°, estimated).
-* **Cost (equivalent seconds, non-negative):** `t + 0.3·E[Wh] + t·1.5·caution + t·0.75·lowConfidence`
-  with `t = L3D / (v_nom · speedFactor(slope))`, `speedFactor = max(0.35, 1 − 0.65·(s/20°)^1.5)`,
-  `E = m·g·(Crr·cosθ + sinθ)⁺·L/η` (no regenerative braking credited), caution scaling linearly over 15–20°.
-* **Algorithm:** A* with heuristic `straight-line distance (minimum cell spacing) / v_nom` — admissible and
-  consistent, verified against Dijkstra in `tests/routing.test.ts`. Deterministic (ties broken by node index).
-  Runs in a Web Worker (typed arrays, binary heap): typical crater-floor routes 50–150 ms; a 124 km corner-to-corner
-  route ≈ 10 s.
-* **Post-processing:** line-of-sight simplification that never crosses excluded or lower-confidence cells and never
-  accepts a steeper cell than the optimiser itself chose on that stretch; distance, time and energy are then
-  re-measured on the **final displayed geometry** (3D surface length on the Mars sphere).
-* **Failure handling:** endpoints on steep ground snap to safe observed terrain within 120 m (reported); otherwise
-  the engine explains *outside coverage*, *DEM gap*, *too steep*, *blocked by slopes* or *blocked by data gaps* (a
-  diagnostic reachability check, never shown as a route).
-* **Vehicle model (ESTIMATED — not a real vehicle specification):** 10 km/h nominal, 3000 kg, rolling resistance 0.15,
-  drivetrain efficiency 0.75, slope limit 20° (conservative, below the 25° quoted for the Apollo LRV), caution 15°,
-  Mars g = 3.71 m/s² (NASA fact sheet). Configured in `src/routing/vehicle.ts`.
-* **Navigation simulation:** progress is driven by simulated vehicle time along the route's per-segment estimated
-  speeds (×60 time warp), so distance travelled — not animation frames — defines position.
-
-## Architecture
-
-```
-scripts/            Python (rasterio/GDAL 3.12, pyproj, geopandas) data pipeline + Mars Trek fetcher + POI builder
-public/data/        tiles/{globe,globe_mola,ortho,topo,terrain,slope,hazard,themis_*}/z/x/y, grids/, vector/
-src/config          planetary constants (verified radius, bounds)
-src/geo             Mars-sphere distance/bearing, coordinate parsing & formatting
-src/data            dataset provenance, geologic unit catalogue + point-in-polygon, loaders
-src/routing         vehicle model, A* engine (pure, tested), Web Worker + client
-src/navigation      simulator (time → position along route), controller (arrow, follow camera, arrival)
-src/map             MapLibre style (local sources only), MapView (intro, layers, interactions), markers
-src/state           zustand store + actions
-src/ui              panels, navigation HUD, layers menu, search, data & sources modal, icons/brand
-tests/              routing tests (wall with gap, no-data barrier, A* = Dijkstra, determinism, coverage)
-```
-
-**Map engine choice:** MapLibre GL JS 5 — one renderer gives the globe projection (intro), 2D raster maps, 3D
-`raster-dem` terrain, hillshade, pitch/bearing camera and touch gestures, with local tiles. The Web-Mercator *tiling
-scheme* is applied to Mars lon/lat purely for display; every physical quantity uses the Mars sphere. Because MapLibre
-scales heights with the Earth radius, terrain exaggeration `R_earth/R_mars = 1.878` renders relief at true Mars
-proportion ("True scale").
-
-## Reproducing the data
-
-Raw products are not committed (≈ 1 GB). To rebuild `public/data/`:
+The application requires preprocessed planetary datasets in `/public/data/`. To regenerate grids from raw NASA/USGS sources:
 
 ```bash
-python -m venv .venv-geo
-.venv-geo/Scripts/python -m pip install rasterio numpy pillow pyproj scipy pyogrio geopandas shapely matplotlib
+.venv-geo/Scripts/python scripts/prepare_data.py  # Full pipeline: ortho, terrain, topo, slope, themis, routing, eva
 ```
 
-Download into `data/raw/`: the two USGS Jezero CTX GeoTIFFs (links on the USGS product page), `sim3464_database.zip`
-(unzip to `data/raw/sim3464/`), `M20_traverse.json` and `M20_waypoints.json` from NASA MMGIS; extract the MOLA window
-and Trek mosaics (see `scripts/fetch_trek_global.py` docstring), then:
+Raw data is stored in `/data/raw/` (gitignored). All source files include download URLs and checksums for provenance tracking.
 
-```bash
-.venv-geo/Scripts/python -I scripts/prepare_data.py
-.venv-geo/Scripts/python -I scripts/build_pois.py
-```
+## Current State & Known Limitations
 
-## Known limitations
+GeoMars V1.0 serves as a functional offline prototype with transparent documentation of coverage boundaries:
 
-* Routing slopes come from a 20 m DEM: obstacles below ~40–60 m (rocks, small scarps, sand ripples) are invisible;
-  stereo noise can inflate local slopes. HiRISE 1 m DTMs are not integrated.
-* Vehicle parameters, travel time and energy are estimates of a hypothetical vehicle.
-* No calibrated thermal values: THEMIS layers are 8-bit stretched brightness (relative).
-* Not integrated in V1.0: CRISM mineral maps, MEDA historical weather (shown as unavailable).
-* SIM 3464 geology was drawn on a semi-controlled mosaic: ~100–200 m offsets relative to the CTX orthomosaic are possible.
-* Very long routes (> ~80 km) can take several seconds to compute.
-* Desktop and tablet are supported; phones work but are not a design target.
+- ✅ **Offline-first operation:** All tiles and grids cached locally
+- ✅ **Real planetary data:** No synthetic terrain generation
+- ✅ **Deterministic routing:** A* pathfinding with physical cost functions
+- ✅ **Multi-layer visualization:** Satellite, topographic, geologic, and mission context layers
+- ⚠️ **Unintegrated datasets:** CRISM mineralogy and MEDA weather data documented but not yet integrated
+- ⚠️ **Estimated parameters:** Vehicle energy consumption and surface roughness use best-available proxies where direct observations are unavailable
+- ⚠️ **Hardware concept:** CAD models require environmental testing and human-factors validation before flight qualification
 
-## Credits
+## Contributing & Citation
 
-NASA/JPL-Caltech, USGS Astrogeology Science Center, MSSS (CTX), ASU (THEMIS), NASA Solar System Treks.
-Sun, V., and Stack, K., 2020, USGS SIM 3464, https://doi.org/10.3133/sim3464. Mangold et al. 2021, *Science*,
-https://doi.org/10.1126/science.abl4051. Fergason et al. 2020 (Mars 2020 TRN products). GeoMars branding and code are original.
+This project demonstrates how open planetary datasets and human-centered industrial design converge into practical exploration tools. For academic citation:
+
+- **Software:** Cite GeoMars V1.0 with reference to source data providers (USGS, NASA GSFC, PDS Atmospheres)
+- **Design:** Refer to physical design documentation in `/physical_screen_design/docs/` and human-factors rationale in `/docs/HUMAN_FACTORS.md`
+
+## License
+
+GeoMars branding and code are original. All planetary data remains under respective provider licenses (typically public domain or CC-BY).
+
+---
+
+**NASA/JPL-Caltech, USGS Astrogeology Science Center, MSSS (CTX), ASU (THEMIS), NASA Solar System Treks.**
