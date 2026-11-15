@@ -7,6 +7,7 @@ import { skipIntro } from '../../map/MapView';
 import { enterNavigationPaused } from '../../state/actions';
 import { GeoMarsLogo, LOGO_SRC, IconChevron, IconClose, IconCompass, IconCube, IconInfo, IconLayers, IconMinus, IconNav, IconPlus } from '../icons/Icons';
 import { StatusTag } from './StatusTag';
+import { ENHANCED_3D_DISCLOSURE, hoverListeners } from '../../immersive/state';
 
 export function Brand({ compact = false }: { compact?: boolean }) {
   return (
@@ -111,12 +112,16 @@ export function BottomBar() {
         const nice = [5, 2, 1].map((k) => k * pow).find((v) => v <= maxM) ?? pow;
         setScale({ w: nice / mpp, label: nice >= 1000 ? `${nice / 1000} km` : `${nice} m` });
       };
+      // enhanced 3D view: coordinates of the surface point under the cursor
+      const hover3d = (p: [number, number] | null) => p && setCoord(formatCoord(p, 4));
       m.on('mousemove', move);
       m.on('move', upd);
+      hoverListeners.add(hover3d);
       upd();
       off = () => {
         m.off('mousemove', move);
         m.off('move', upd);
+        hoverListeners.delete(hover3d);
       };
     });
     return () => off();
@@ -180,6 +185,11 @@ export function SourcesModal() {
             </article>
           ))}
         </div>
+        <p className="gm-fine">
+          {ENHANCED_3D_DISCLOSURE} Elevation, imagery, coordinates, scientific layers and routes are the NASA/USGS-derived data listed above. Rocks, pebbles,
+          metre-scale micro-relief (±1.1 m), surface textures, lighting, sky and haze are procedurally generated for visualization only: they are not observations
+          and are never used by route calculation, hazard classification or distances.
+        </p>
         <p className="gm-fine">
           GeoMars routes are estimates for exploration planning and education. They are not astronaut-grade or safety-certified traverse plans.
         </p>

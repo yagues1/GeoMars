@@ -4,6 +4,7 @@ import type { RouteFailure, RouteSuccess } from '../routing/astar';
 import type { Poi } from '../data/loaders';
 import type { TerrainSample } from '../routing/client';
 import type { TravelMode } from '../routing/vehicle';
+import { loadQuality, type QualityId } from '../immersive/quality';
 
 export type AppMode = 'planning' | 'navigation';
 export type Tool = 'explore' | 'route';
@@ -43,6 +44,10 @@ interface State {
   mapStyle: MapStyleId;
   view3d: boolean;
   exaggeration: 1 | 2;
+  /** Enhanced 3D renderer visual quality preset (visual only — never affects routing). */
+  quality3d: QualityId;
+  /** Enhanced 3D renderer status: 'fallback' = WebGL2 unavailable, MapLibre terrain used instead. */
+  render3d: 'off' | 'loading' | 'on' | 'fallback';
   layers: LayerState;
   pois: Poi[];
   origin: LngLat | null;
@@ -80,6 +85,8 @@ export const useStore = create<State>((set, get) => ({
   mapStyle: 'satellite',
   view3d: false,
   exaggeration: 1,
+  quality3d: loadQuality(),
+  render3d: 'off',
   layers: {
     pois: true,
     hazard: true,
