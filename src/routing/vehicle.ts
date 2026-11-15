@@ -27,8 +27,8 @@ export const DEFAULT_VEHICLE: VehicleModel = {
   name: 'Pressurised exploration rover (generic concept)',
   // Conservative assumption, below the 25° slope capability quoted for the Apollo LRV.
   maxSlopeDeg: 20,
-  cautionSlopeDeg: 15,
-  nominalSpeedMs: 10 / 3.6, // 10 km/h
+  cautionSlopeDeg: 12,  // Updated to match spec (caution threshold)
+  nominalSpeedMs: 10 / 3.6, // 10 km/h (~2.78 m/s)
   minSpeedFactor: 0.35,
   massKg: 3000,
   rollingResistance: 0.15, // loose, sandy regolith assumption

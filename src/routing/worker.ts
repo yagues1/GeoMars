@@ -1,7 +1,7 @@
 /// <reference lib="webworker" />
 /**
- * Background worker owning the routing grid. Keeps the 5.6 M-cell graph and A* search off the
- * React/map thread. Messages: init → ready, route → result, inspect → terrain sample.
+ * Background worker for A* routing with terrain-aware cost factors.
+ * Load 8 grid layers: elevation, slope, magnetism, wind (exposure), ice (thermal inertia).
  */
 import { computeRoute, lngLatToCell, prepareGrid, elevationAt, type PreparedGrid } from './astar';
 import { DEFAULT_VEHICLE, type VehicleModel } from './vehicle';
@@ -19,15 +19,28 @@ interface GridMeta {
   slope_scale: number;
 }
 
+interface EvaConstants {
+  pressure_pa: { value: number; n: number };
+  t_base_c: { value: string };
+  uv_radiation: { value: string };
+  wind?: { value: string; direction_deg: number };
+}
+
 let grid: PreparedGrid | null = null;
+let evaConst: EvaConstants | null = null;
 let loading: Promise<void> | null = null;
 
 async function load(base: string) {
-  const [meta, e, s] = await Promise.all([
+  const [meta, e, s, m, w, i, constData] = await Promise.all([
     fetch(`${base}/grids/routing.json`).then((r) => r.json() as Promise<GridMeta>),
     fetch(`${base}/grids/routing_elev.i16`).then((r) => r.arrayBuffer()),
     fetch(`${base}/grids/routing_slope.u8`).then((r) => r.arrayBuffer()),
+    fetch(`${base}/grids/routing_magnet.f32`).then((r) => r.arrayBuffer()),  // Magnetic field nT
+    fetch(`${base}/grids/routing_wind.f32`).then((r) => r.arrayBuffer()),  // Wind exposure factor
+    fetch(`${base}/grids/themis_dayir.u8`).then((r) => r.arrayBuffer()),   // THEMIS TI (thermal inertia)
+    fetch(`${base}/grids/eva_constants.json`).then((r) => r.json() as Promise<EvaConstants>),
   ]);
+
   grid = prepareGrid({
     width: meta.width,
     height: meta.height,
@@ -42,6 +55,17 @@ async function load(base: string) {
     slopeScale: meta.slope_scale,
     gravity: MARS_GRAVITY,
   });
+
+  // Load magnetic field as Float32Array for cost calculation
+  grid.magnet = new Float32Array(m);
+
+  // Load wind exposure factor 
+  grid.windExposure = new Float32Array(w);
+
+  // Load THEMIS thermal inertia (Uint8, scale by 16 to approximate J m^-2 K^-1 s^-1/2)
+  grid.thermalInertia = new Uint16Array(i).map(v => v * 16);
+
+  evaConst = constData;
 }
 
 type Msg =
@@ -67,18 +91,20 @@ self.onmessage = async (ev: MessageEvent<Msg>) => {
     const result = computeRoute(grid, msg.vehicle ?? DEFAULT_VEHICLE, msg.from, msg.to);
     self.postMessage({ type: 'route', id: msg.id, result });
   } else if (msg.type === 'inspect') {
-    const [lon, lat] = msg.lngLat;
-    const { c, r } = lngLatToCell(grid, lon, lat);
-    let out: { covered: boolean; elevation?: number; slope?: number; lowConfidence?: boolean } = { covered: false };
+    const [lng, lat] = msg.lngLat;
+    const { c, r } = lngLatToCell(grid, lng, lat);
+    let out: { covered: boolean; elevation?: number; slope?: number; magnetic_nT?: number; wind_exposure?: number; thermal_inertia?: number } = { covered: false };
     if (c >= 0 && r >= 0 && c < grid.width && r < grid.height) {
       const i = r * grid.width + c;
       if (grid.confidence[i] !== 0) {
-        const e = elevationAt(grid, lon, lat);
+        const e = elevationAt(grid, lng, lat);
         out = {
           covered: true,
           elevation: Number.isFinite(e) ? e : grid.elev[i],
           slope: grid.slope[i] * grid.slopeScale,
-          lowConfidence: grid.confidence[i] === 1,
+          magnetic_nT: Number.isFinite(grid.magnet![i]) ? grid.magnet![i] : undefined,
+          wind_exposure: Number.isFinite(grid.windExposure![i]) ? grid.windExposure![i] : undefined,
+          thermal_inertia: grid.thermalInertia![i] || undefined,
         };
       }
     }

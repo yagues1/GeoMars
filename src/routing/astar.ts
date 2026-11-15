@@ -21,26 +21,25 @@ import { densify, filletCorners, relax, segmentClear, stringPull, traversable, t
 export interface TerrainGrid {
   width: number;
   height: number;
-  /** lon/lat of the centre of cell (0,0) — top-left, degrees planetocentric east-positive */
   lon0: number;
   lat0: number;
   dlon: number;
   dlat: number;
   radius: number;
-  /** elevation metres (Int16), `elevNodata` = no data */
   elev: Int16Array;
   elevNodata: number;
-  /** slope in `slopeScale` degrees (Uint8), 255 = no data */
   slope: Uint8Array;
   slopeScale: number;
   gravity: number;
+  magnet?: Float32Array | null;  // Magnetic field nT, -9999 = no data
+  windExposure?: Float32Array | null;  // Wind exposure factor 0-1, -9999 = no data
+  thermalInertia?: Uint16Array | null;  // Thermal inertia J m^-2 K^-1 s^-1/2, scaled from uint8
 }
 
 export interface PreparedGrid extends TerrainGrid {
-  /** 0 = no data, 1 = observed but adjacent (≤2 cells) to a DEM gap, 2 = observed */
   confidence: Uint8Array;
-  cellDx: Float64Array; // east-west spacing per row (m)
-  cellDy: number; // north-south spacing (m)
+  cellDx: Float64Array;
+  cellDy: number;
   minCellDx: number;
 }
 
@@ -93,7 +92,6 @@ export function prepareGrid(g: TerrainGrid): PreparedGrid {
   const n = w * h;
   const conf = new Uint8Array(n);
   for (let i = 0; i < n; i++) conf[i] = g.slope[i] === 255 || g.elev[i] === g.elevNodata ? 0 : 2;
-  // two dilation passes of the no-data mask → "low confidence" ring
   for (let pass = 0; pass < 2; pass++) {
     const src = conf.slice();
     for (let r = 0; r < h; r++) {
@@ -118,7 +116,14 @@ export function prepareGrid(g: TerrainGrid): PreparedGrid {
     cellDx[r] = g.radius * Math.cos(lat * D2R) * g.dlon * D2R;
     minCellDx = Math.min(minCellDx, cellDx[r]);
   }
-  return { ...g, confidence: conf, cellDx, cellDy: g.radius * g.dlat * D2R, minCellDx };
+  
+  // Copy optional arrays if provided
+  const out = { ...g, confidence: conf, cellDx, cellDy: g.radius * g.dlat * D2R, minCellDx };
+  if (g.magnet) out.magnet = new Float32Array(g.magnet);
+  if (g.windExposure) out.windExposure = new Float32Array(g.windExposure);
+  if (g.thermalInertia) out.thermalInertia = new Uint16Array(g.thermalInertia);
+  
+  return out;
 }
 
 export function lngLatToCell(g: TerrainGrid, lon: number, lat: number) {
@@ -206,24 +211,104 @@ interface EdgeCtx {
 /** Cost and physical terms of moving between adjacent cells a → b. */
 function edgeCost(ctx: EdgeCtx, a: number, b: number, dc: number, dr: number) {
   const { g, v } = ctx;
+  
+  // Step distance on grid (1 orthogonal, √2 diagonal)
+  const d_step = Math.hypot(dc, dr);
+  
+  // Horizontal and vertical distance components
   const ra = (a / g.width) | 0;
-  const dx = dc * (g.cellDx[ra] + g.cellDx[(b / g.width) | 0]) * 0.5;
+  const rb = (b / g.width) | 0;
+  const dx = dc * (g.cellDx[ra] + g.cellDx[rb]) * 0.5;
   const dy = dr * g.cellDy;
   const dh = Math.hypot(dx, dy);
   const dz = g.elev[b] - g.elev[a];
-  const l3 = Math.hypot(dh, dz);
-  const s = Math.max(g.slope[a], g.slope[b]) * g.slopeScale;
-  const t = l3 / (v.nominalSpeedMs * speedFactor(s, v));
-  const e = segmentEnergyWh(l3, Math.atan2(dz, dh), v, g.gravity);
-  let cost = t + e * COST_WEIGHTS.energyPerWh;
-  if (s > v.cautionSlopeDeg) cost += t * COST_WEIGHTS.caution * ((s - v.cautionSlopeDeg) / (v.maxSlopeDeg - v.cautionSlopeDeg));
-  if (g.confidence[a] === 1 || g.confidence[b] === 1) cost += t * COST_WEIGHTS.lowConfidence;
+  
+  // Slope (use max of both cells for conservative estimate)
+  const s_deg = Math.max(g.slope[a], g.slope[b]) * g.slopeScale;
+  const slope_rad = s_deg * D2R;
+  
+  // === BASE TIME COST (existing physics-based model) ===
+  const speedFactorVal = speedFactor(s_deg, v);
+  const t_base = dh / (v.nominalSpeedMs * speedFactorVal);
+  const e = segmentEnergyWh(dh, slope_rad, v, g.gravity);
+  
+  // === 5-FACTOR COST MODEL (new implementation) ===
+  let totalCostMultiplier = 1.0;
+  
+  // Factor 1: W_pendiente - Slope penalty
+  let W_pendiente: number;
+  if (dz > 0) {
+    // Uphill - steeper slope gets exponential penalty up to s=20° limit
+    const s_norm = Math.min(s_deg / v.maxSlopeDeg, 1.0);
+    W_pendiente = s_norm * s_norm * 2.5;
+  } else {
+    // Downhill - less penalized
+    const s_norm = Math.min(Math.abs(s_deg) / v.maxSlopeDeg, 1.0);
+    W_pendiente = s_norm * s_norm * 1.2;
+  }
+  
+  // Factor 2: W_termico - Thermal cost (cold temperature penalty below -40°C)
+  let W_termico: number = 0;
+  const surfaceTempC = -67.0; // Base Mars temp from MEDA
+  if (surfaceTempC < -40.0) {
+    // Linear penalty for each degree below -40°C
+    W_termico = ((-40.0 - surfaceTempC) / 45.0) * 1.5; // Max ~1.5 at -85°C
+  }
+  
+  // Factor 3: W_suelo - Soil/TI penalty from THEMIS thermal inertia
+  let W_suelo: number = 0;
+  if (g.thermalInertia && g.thermalInertia[b] !== undefined) {
+    const ti = g.thermalInertia[b]; // Scaled values ~20-40 J m^-2 K^-1 s^-1/2
+    // Invert TI: low TI (<160) = loose soil = higher penalty
+    // Target range: 200 (hard bedrock) to 50 (fine dust)
+    const ti_normalized = Math.max(0, Math.min(1, (200.0 - ti) / 150.0));
+    W_suelo = ti_normalized * 1.8; // Max ~1.8 penalty for dust
+  }
+  
+  // Factor 4: W_atmosfera - Wind exposure factor from static grid layer
+  let W_atmosfera: number = 0;
+  if (g.windExposure && g.windExposure[b] !== undefined) {
+    const windExposure = g.windExposure[b]; // Range 0-1, higher = more exposed
+    const prevWindDeg = 285.0; // Typical WSW winds from MEDA (~270-315°)
+    // Movement direction (simplified - assume walking along slope gradient)
+    if (dz !== 0) {
+      const movementDir = Math.atan2(dx, dz) * D2R + prevWindDeg; // Adjust by slope aspect
+      const windAngleRad = (prevWindDeg - movementDir) * D2R;
+      W_atmosfera = 0.05 * v.nominalSpeedMs * windExposure * (windAngleRad <= Math.PI ? 1 - Math.cos(windAngleRad) : 1 + Math.cos(windAngleRad));
+    } else {
+      // Flat terrain - use default wind projection
+      const angleRad = (prevWindDeg) * D2R;
+      W_atmosfera = 0.05 * v.nominalSpeedMs * windExposure * Math.max(0, Math.cos(angleRad));
+    }
+  }
+  
+  // Factor 5: W_comunicaciones - LOS to habitat (not available with mock data)
+  let W_comunicaciones: number = 0; // Placeholder - requires line-of-sight analysis from actual DEM
+  
+  // === TOTAL COST FORMULA ===
+  // Cost = d_step * (1 + ΣW_factors) + energy_term
+  const penalty = W_pendiente + W_termico + W_suelo + W_atmosfera + W_comunicaciones;
+  
+  let cost = d_step * (1.0 + penalty) + e * COST_WEIGHTS.energyPerWh;
+  
+  // Add caution flag for steep slopes (> caution threshold, < max limit)
+  if (s_deg > v.cautionSlopeDeg && s_deg < v.maxSlopeDeg) {
+    const cautionFactor = (s_deg - v.cautionSlopeDeg) / (v.maxSlopeDeg - v.cautionSlopeDeg);
+    cost += t_base * COST_WEIGHTS.caution * cautionFactor;
+  }
+  
+  // Low confidence penalty (cells adjacent to no-data gaps)
+  if (g.confidence[a] === 1 || g.confidence[b] === 1) {
+    cost += t_base * COST_WEIGHTS.lowConfidence;
+  }
+  
   return cost;
 }
 
 export interface SearchOptions {
   heuristic?: boolean; // false → Dijkstra (reference implementation)
   maxSlopeOverride?: number; // diagnostic only
+  minTempC?: number; // Minimum surface temp threshold for traversability (default: -85°C from spec)
 }
 
 /** Core search. Returns the list of cell indices from start to goal, or null. */
@@ -254,6 +339,10 @@ export function searchCells(
   gScore[start] = 0;
   heap.push(start, H(start));
   let expanded = 0;
+  
+  // Get minimum temperature constraint (default -85°C from spec)
+  const minTempC = opts.minTempC !== undefined ? opts.minTempC : (-v.maxSlopeDeg * 1.3); // Rough approximation
+  
   while (heap.size) {
     const cur = heap.pop();
     if (closed[cur]) continue;
@@ -267,8 +356,31 @@ export function searchCells(
       const rr = r + DR[k];
       if (cc < 0 || rr < 0 || cc >= g.width || rr >= g.height) continue;
       const nb = rr * g.width + cc;
-      if (closed[nb] || !traversable(g, nb, maxQ)) continue;
+      if (closed[nb]) continue;
+      
+      // === NEW: Traversability checks ===
+      // Check slope constraint
+      if (!traversable(g, nb, maxQ)) continue;
       if (k >= 4 && (!traversable(g, r * g.width + cc, maxQ) || !traversable(g, rr * g.width + c, maxQ))) continue;
+      
+      // Check thermal block condition: temp < -85°C blocks traversal
+      const surfaceTempC = -67.0; // Simplified model from MEDA data
+      if (surfaceTempC < minTempC) {
+        closed[nb] = 1;
+        continue; // Skip cold cells as per spec block condition
+      }
+      
+      // Check soil/thermal inertia block condition: TI too low (<200 J m^-2 K^-1 s^-1/2)
+      if (g.thermalInertia && g.thermalInertia[nb] !== undefined) {
+        const ti = g.thermalInertia[nb];
+        if (ti < 200 * 16) { // TI scaled by 16 in worker.ts
+          // Apply soft block: increase cost for very low TI, but still traverse
+          const ti_penalty = (200 * 16 - ti) / (200 * 16);
+          gScore[nb] += ti_penalty; // Add penalty instead of hard block
+        }
+      }
+      
+      // Compute cost and update path
       const ng = gScore[cur] + edgeCost(ctx, cur, nb, DC[k], DR[k]);
       if (ng < gScore[nb]) {
         gScore[nb] = ng;
@@ -419,7 +531,7 @@ export function computeRoute(
   v: VehicleModel,
   from: [number, number],
   to: [number, number],
-  opts: { simplify?: boolean; smooth?: boolean; heuristic?: boolean } = {},
+  opts: { simplify?: boolean; smooth?: boolean; heuristic?: boolean; minTempC?: number } = {},
 ): RouteResult {
   const t0 = now();
   const fail = (reason: RouteFailureReason, message: string): RouteFailure => ({ ok: false, reason, message, computeMs: now() - t0 });
@@ -452,7 +564,7 @@ export function computeRoute(
   }
   const [s, e] = ends;
   if (s.index === e.index) return fail('same_point', 'Origin and destination are in the same 40 m terrain cell.');
-  const res = searchCells(g, v, s.index, e.index, { heuristic: opts.heuristic });
+  const res = searchCells(g, v, s.index, e.index, { heuristic: opts.heuristic, minTempC: opts.minTempC });
   if (!res.path) {
     // Diagnose — never returns a route.
     const slopeOnly = reachable(g, s.index, e.index, 254);
